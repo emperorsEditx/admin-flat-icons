@@ -1,75 +1,37 @@
 "use client";
-import Checkbox from "@/components/form/input/Checkbox";
+import { useRouter } from "next/navigation";
 import Input from "@/components/form/input/InputField";
 import Label from "@/components/form/Label";
-import { ChevronLeftIcon, EyeCloseIcon, EyeIcon } from "@/icons";
+import Button from "@/components/ui/button/Button";
+import { EyeCloseIcon, EyeIcon } from "@/icons";
 import Link from "next/link";
-import { useState } from "react";
-import { useRouter } from "next/navigation";
+import React, { useState } from "react";
 import { signIn } from "next-auth/react";
-
 import Alert from "../ui/alert/Alert";
 
-export default function SignUpForm() {
+export default function SignInForm() {
   const [showPassword, setShowPassword] = useState(false);
-  const [isChecked, setIsChecked] = useState(false);
-  const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
   const router = useRouter();
 
-  const handleSignup = async (e: React.FormEvent) => {
+  const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
-    setError("");
 
-    if (!isChecked) {
-      setError("Please agree to the Terms and Conditions");
-      return;
-    }
+    const res = await signIn("credentials", {
+      redirect: false,
+      email,
+      password,
+    });
 
-    // 1️⃣ Signup request to backend
-    try {
-      const res = await fetch(`${process.env.NEXT_PUBLIC_NEST_API_URL || "http://127.0.0.1:8000"}/auth/signup`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ name, email, password }),
-      });
-
-      const data = await res.json();
-
-      if (!res.ok) {
-        setError(data.message || "Signup failed");
-        return;
-      }
-
-      // 2️⃣ Auto-login via NextAuth credentials
-      const loginRes = await signIn("credentials", {
-        redirect: false,
-        email,
-        password,
-      });
-
-      if (loginRes?.error) {
-        setError(loginRes.error);
-      } else {
-        router.push("/"); // Redirect to dashboard/home
-      }
-    } catch (err) {
-      setError("An unexpected error occurred. Please try again.");
-      console.error("Signup error:", err);
-    }
+    if (res?.error) setError(res.error);
+    else router.push("/");
   };
 
   return (
-    <div className="flex flex-col flex-1 lg:w-1/2 w-full overflow-y-auto no-scrollbar">
-      {error && (
-        <Alert
-          variant="error"
-          title="Signup Error"
-          message={error}
-        />
-      )}
+    <div className="flex flex-col flex-1 lg:w-1/2 w-full">
+      {error && <Alert variant="error" title='Login Error' message={error}></Alert>}
       <div className="flex flex-col justify-center flex-1 w-full max-w-md mx-auto">
         <div>
           <div className="mb-5 sm:mb-25 flex justify-center">
@@ -92,46 +54,30 @@ export default function SignUpForm() {
             </svg>
           </div>
           <div>
-
-            <form onSubmit={handleSignup}>
-              <div className="space-y-5">
-                <div>
-                  {/* <!-- Name --> */}
-                  <Label>
-                    Full Name<span className="text-error-500">*</span>
-                  </Label>
-                  <Input
-                    type="text"
-                    id="name"
-                    name="name"
-                    placeholder="Enter your full name"
-                    value={name}
-                    onChange={(e) => setName(e.target.value)}
-                  />
-                </div>
-                {/* <!-- Email --> */}
+            <p className="text-xl my-7 text-gray-500 dark:text-gray-400">
+              Sign in to your newicon account!
+            </p>
+            <form onSubmit={handleLogin}>
+              <div className="space-y-6">
                 <div>
                   <Label>
-                    Email<span className="text-error-500">*</span>
+                    Email <span className="text-error-500">*</span>{" "}
                   </Label>
                   <Input
+                    placeholder="info@gmail.com"
                     type="email"
-                    id="email"
-                    name="email"
-                    placeholder="Enter your email"
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
                   />
                 </div>
-                {/* <!-- Password --> */}
                 <div>
                   <Label>
-                    Password<span className="text-error-500">*</span>
+                    Password <span className="text-error-500">*</span>{" "}
                   </Label>
                   <div className="relative">
                     <Input
-                      placeholder="Enter your password"
                       type={showPassword ? "text" : "password"}
+                      placeholder="Enter your password"
                       value={password}
                       onChange={(e) => setPassword(e.target.value)}
                     />
@@ -147,29 +93,18 @@ export default function SignUpForm() {
                     </span>
                   </div>
                 </div>
-                {/* <!-- Checkbox --> */}
-                <div className="flex items-center gap-3">
-                  <Checkbox
-                    className="w-5 h-5"
-                    checked={isChecked}
-                    onChange={setIsChecked}
-                  />
-                  <p className="inline-block font-normal text-gray-500 dark:text-gray-400">
-                    By creating an account means you agree to the{" "}
-                    <span className="text-gray-800 dark:text-white/90">
-                      Terms and Conditions,
-                    </span>{" "}
-                    and our{" "}
-                    <span className="text-gray-800 dark:text-white">
-                      Privacy Policy
-                    </span>
-                  </p>
+                <div className="flex items-center justify-center">
+                  <Link
+                    href="/reset-password"
+                    className="text-sm text-brand-500 hover:text-brand-600 dark:text-brand-400"
+                  >
+                    Forgot password?
+                  </Link>
                 </div>
-                {/* <!-- Button --> */}
                 <div>
-                  <button className="flex items-center justify-center w-full px-4 py-3 text-sm font-medium text-white transition rounded-lg bg-brand-500 shadow-theme-xs hover:bg-brand-600">
-                    Sign Up
-                  </button>
+                  <Button className="w-full" size="sm">
+                    Sign in
+                  </Button>
                 </div>
               </div>
             </form>
@@ -184,11 +119,7 @@ export default function SignUpForm() {
               </div>
             </div>
             <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 sm:gap-5">
-              <button
-                type="button"
-                onClick={() => signIn("google", { callbackUrl: "/" })}
-                className="inline-flex items-center justify-center gap-3 py-3 text-sm font-normal text-gray-700 transition-colors bg-gray-100 rounded-lg px-7 hover:bg-gray-200 hover:text-gray-800 dark:bg-white/5 dark:text-white/90 dark:hover:bg-white/10"
-              >
+              <button onClick={() => signIn("google", { callbackUrl: "/" })} className="inline-flex items-center justify-center gap-3 py-3 text-sm font-normal text-gray-700 transition-colors bg-gray-100 rounded-lg px-7 hover:bg-gray-200 hover:text-gray-800 dark:bg-white/5 dark:text-white/90 dark:hover:bg-white/10">
                 <svg
                   width="20"
                   height="20"
@@ -213,7 +144,7 @@ export default function SignUpForm() {
                     fill="#EB4335"
                   />
                 </svg>
-                Sign up with Google
+                Sign in with Google
               </button>
               <button className="inline-flex items-center justify-center gap-3 py-3 text-sm font-normal text-gray-700 transition-colors bg-gray-100 rounded-lg px-7 hover:bg-gray-200 hover:text-gray-800 dark:bg-white/5 dark:text-white/90 dark:hover:bg-white/10">
                 <svg
@@ -226,17 +157,18 @@ export default function SignUpForm() {
                 >
                   <path d="M15.6705 1.875H18.4272L12.4047 8.75833L19.4897 18.125H13.9422L9.59717 12.4442L4.62554 18.125H1.86721L8.30887 10.7625L1.51221 1.875H7.20054L11.128 7.0675L15.6705 1.875ZM14.703 16.475H16.2305L6.37054 3.43833H4.73137L14.703 16.475Z" />
                 </svg>
-                Sign up with X
+                Sign in with X
               </button>
             </div>
+
             <div className="mt-5">
               <p className="text-sm font-normal text-center text-gray-700 dark:text-gray-400 sm:text-start">
-                Already have an account?
+                Don&apos;t have an account? {""}
                 <Link
-                  href="/signin"
+                  href="/signup"
                   className="text-brand-500 hover:text-brand-600 dark:text-brand-400"
                 >
-                  Sign In
+                  Sign Up
                 </Link>
               </p>
             </div>

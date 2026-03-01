@@ -13,11 +13,10 @@ const ReactApexChart = dynamic(() => import("react-apexcharts"), {
 
 export default function MonthlySalesChart() {
   const options: ApexOptions = {
-    colors: ["#465fff"],
+    colors: ["#0076EC", '#67D880'],
     chart: {
       fontFamily: "Outfit, sans-serif",
       type: "bar",
-      height: 180,
       toolbar: {
         show: false,
       },
@@ -25,8 +24,8 @@ export default function MonthlySalesChart() {
     plotOptions: {
       bar: {
         horizontal: false,
-        columnWidth: "39%",
-        borderRadius: 5,
+        columnWidth: "40%",
+        borderRadius: 0,
         borderRadiusApplication: "end",
       },
     },
@@ -35,23 +34,41 @@ export default function MonthlySalesChart() {
     },
     stroke: {
       show: true,
-      width: 4,
+      width: 2,
       colors: ["transparent"],
     },
     xaxis: {
       categories: [
-        "Jan",
-        "Feb",
-        "Mar",
-        "Apr",
-        "May",
-        "Jun",
-        "Jul",
-        "Aug",
-        "Sep",
-        "Oct",
-        "Nov",
-        "Dec",
+        "1",
+        "2",
+        "3",
+        "4",
+        "5",
+        "6",
+        "7",
+        "8",
+        "9",
+        "10",
+        "11",
+        "12",
+        "13",
+        "14",
+        "15",
+        "16",
+        "17",
+        "18",
+        "19",
+        "20",
+        "21",
+        "22",
+        "23",
+        "24",
+        "25",
+        "26",
+        "27",
+        "28",
+        "29",
+        "30"
       ],
       axisBorder: {
         show: false,
@@ -93,8 +110,12 @@ export default function MonthlySalesChart() {
   };
   const series = [
     {
-      name: "Sales",
-      data: [168, 385, 201, 298, 187, 195, 291, 110, 215, 390, 280, 112],
+      name: "Downloadings",
+      data: [168, 0, 201, 0, 187, 195, 291, 110, 215, 0, 280, 112, 168, 0, 201, 0, 201, 0, 201, 0, 201, 0, 187, 195, 291, 110, 215, 0, 280, 112],
+    },
+    {
+      name: "Earnings",
+      data: [168, 0, 201, 0, 187, 195, 291, 110, 215, 0, 280, 112, 195, 291, 110, 195, 291, 110, 195, 291, 110, 195, 291, 110, 195, 291, 215, 0, 280, 112],
     },
   ];
   const [isOpen, setIsOpen] = useState(false);
@@ -108,7 +129,7 @@ export default function MonthlySalesChart() {
   }
 
   return (
-    <div className="overflow-hidden rounded-2xl border border-gray-200 bg-white px-5 pt-5 dark:border-gray-800 dark:bg-white/[0.03] sm:px-6 sm:pt-6">
+    <div className="overflow-hidden rounded-2xl border border-gray-200 bg-white px-5 pt-5 dark:border-gray-800 dark:bg-white/3 sm:px-6 sm:pt-6">
       <div className="flex items-center justify-between">
         <h3 className="text-lg font-semibold text-gray-800 dark:text-white/90">
           Monthly Sales
@@ -145,7 +166,7 @@ export default function MonthlySalesChart() {
             options={options}
             series={series}
             type="bar"
-            height={180}
+            height={350}
           />
         </div>
       </div>
