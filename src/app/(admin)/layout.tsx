@@ -39,7 +39,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
       `}</style>
       </div>
     );
-    
+
   if (!session) return null;
 
   const mainContentMargin = isMobileOpen

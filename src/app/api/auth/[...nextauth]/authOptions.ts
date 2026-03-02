@@ -96,12 +96,12 @@ export const authOptions: AuthOptions = {
           });
 
           const data = await res.json();
-          
+
           if (res.ok && data.accessToken) {
             token.accessToken = data.accessToken;
             token.id = data.user.id;
           } else {
-             console.error("Social Login Failed", data);
+            console.error("Social Login Failed", data);
           }
         } catch (error) {
           console.error("Social Auth Error", error);

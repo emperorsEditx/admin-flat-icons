@@ -185,10 +185,10 @@ const DropzoneComponent: React.FC = () => {
                     <div className="flex items-center gap-2">
                       <span
                         className={`inline-flex items-center justify-center w-7 h-7 rounded-full text-white ${file.status === "Uploaded Successfully"
-                            ? "bg-[#2CB88B]"
-                            : file.status === "Upload Failed"
-                              ? "bg-red-500"
-                              : "bg-blue-500"
+                          ? "bg-[#2CB88B]"
+                          : file.status === "Upload Failed"
+                            ? "bg-red-500"
+                            : "bg-blue-500"
                           }`}
                       >
                         {file.status === "Uploaded Successfully"
