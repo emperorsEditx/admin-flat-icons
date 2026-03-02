@@ -1,10 +1,11 @@
 "use client";
 
 import PageBreadcrumb from "@/components/common/PageBreadCrumb";
-import React, { useEffect, useState, useCallback } from "react";
+import React, { useEffect, useState } from "react";
 import { TagsInput } from "react-tag-input-component";
 import { useSession } from "next-auth/react";
 import { toast } from "@iamqitmeer/toster";
+import Image from "next/image";
 
 interface IconDraft {
   id: number;
@@ -81,7 +82,8 @@ export default function MyDraftsPage() {
             ? tagsData.map((t: any) => (typeof t === 'string' ? t : t?.name ?? String(t)))
             : [];
           setExistingTags(normalized);
-        } catch (e) {
+        } catch (error) {
+          console.error("Failed to normalize tags", error);
           setExistingTags([]);
         }
       } catch (error) {
@@ -396,7 +398,7 @@ export default function MyDraftsPage() {
                 </div>
 
                 <div className="flex-1 flex items-center justify-center p-3">
-                  <img
+                  <Image
                     src={`https://pub-e598b9aaee344c728dd117b85cd19c87.r2.dev/${icon.path}`}
                     alt="icon preview"
                     className="w-20 h-20 object-cover"

@@ -2,7 +2,8 @@
 
 import React, { useEffect, useState } from "react";
 import PageBreadcrumb from "@/components/common/PageBreadCrumb";
-import { useSession } from "next-auth/react";
+// import { useSession } from "next-auth/react";
+import Image from "next/image";
 
 interface Icon {
     id: number;
@@ -18,7 +19,7 @@ interface PendingGroup {
 }
 
 export default function UnderReviewPage() {
-    const { data: session } = useSession();
+    // const { data: session } = useSession();
     const [groups, setGroups] = useState<PendingGroup[]>([]);
     const [loading, setLoading] = useState(true);
     const API_URL = process.env.NEXT_PUBLIC_NEST_API_URL || "http://localhost:8000";
@@ -106,7 +107,7 @@ export default function UnderReviewPage() {
                             <div className="grid grid-cols-2 sm:grid-cols-4 md:grid-cols-6 lg:grid-cols-8 gap-4">
                                 {group.icons.map((icon) => (
                                     <div key={icon.id} className="group relative aspect-square bg-gray-50 dark:bg-gray-900 rounded-lg p-4 flex items-center justify-center border border-gray-100 dark:border-gray-800 hover:border-brand-200 dark:hover:border-brand-800 transition-colors">
-                                        <img
+                                        <Image
                                             src={`https://pub-e598b9aaee344c728dd117b85cd19c87.r2.dev/${icon.path}`}
                                             alt={icon.title}
                                             className="w-full h-full object-contain"

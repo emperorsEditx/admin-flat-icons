@@ -1,5 +1,6 @@
-import SignUpForm from "@/components/auth/SignUpForm";
+import SignUpFormWrapper from "@/components/auth/SignUpFormWrapper";
 import { Metadata } from "next";
+export const dynamic = 'force-dynamic';
 
 export const metadata: Metadata = {
   title: "Next.js SignUp Page | TailAdmin - Next.js Dashboard Template",
@@ -8,5 +9,5 @@ export const metadata: Metadata = {
 };
 
 export default function SignUp() {
-  return <SignUpForm />;
+  return <SignUpFormWrapper />;
 }

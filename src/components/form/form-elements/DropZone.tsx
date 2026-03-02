@@ -4,7 +4,7 @@ import Alert from "@/components/ui/alert/Alert";
 import React, { useState } from "react";
 import { useDropzone } from "react-dropzone";
 import axios from "axios";
-import Link from "next/link";
+// import Link from "next/link";
 import { useSession } from "next-auth/react";
 
 interface UploadedFile {

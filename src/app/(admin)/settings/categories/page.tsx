@@ -1,6 +1,5 @@
 "use client";
 import React, { useEffect, useState } from "react";
-import { useSession } from "next-auth/react";
 import { Modal } from "@/components/ui/modal";
 import Input from "@/components/form/input/InputField";
 import Label from "@/components/form/Label";
@@ -12,7 +11,6 @@ import {
     TableHeader,
     TableRow,
 } from "@/components/ui/table";
-import { TrashBinIcon, PencilIcon } from "@/icons"; // Assuming these exist or I'll use text
 
 interface Category {
     id: number;
@@ -21,7 +19,6 @@ interface Category {
 }
 
 export default function CategoriesPage() {
-    const { data: session } = useSession();
     const [categories, setCategories] = useState<Category[]>([]);
     const [isLoading, setIsLoading] = useState(true);
     const [isModalOpen, setIsModalOpen] = useState(false);

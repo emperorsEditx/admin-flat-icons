@@ -1,6 +1,5 @@
 "use client";
 import React, { useEffect, useState } from "react";
-import { useSession } from "next-auth/react";
 import { Modal } from "@/components/ui/modal";
 import Input from "@/components/form/input/InputField";
 import Label from "@/components/form/Label";
@@ -28,7 +27,6 @@ interface SubCategory {
 }
 
 export default function SubCategoriesPage() {
-    const { data: session } = useSession();
     const [subCategories, setSubCategories] = useState<SubCategory[]>([]);
     const [categories, setCategories] = useState<Category[]>([]);
     const [isLoading, setIsLoading] = useState(true);

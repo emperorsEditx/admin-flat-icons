@@ -1,7 +1,5 @@
 "use client";
 import React, { useEffect, useState } from "react";
-import Badge from "../ui/badge/Badge";
-import { ArrowDownIcon, ArrowUpIcon, BoxIconLine, GroupIcon } from "@/icons";
 
 export const EcommerceMetrics = () => {
   const API_URL = process.env.NEXT_PUBLIC_NEST_API_URL || "http://localhost:8000";
