@@ -34,7 +34,7 @@ export default function SubCategoriesPage() {
     const [currentSubCategory, setCurrentSubCategory] = useState<SubCategory | null>(null);
     const [formData, setFormData] = useState({ name: "", status: "ACTIVE", categoryId: "" });
 
-    const API_URL = process.env.NEXT_PUBLIC_NEST_API_URL || 'https://api-flat-icons.vercel.app/';
+    const API_URL = process.env.NEXT_PUBLIC_NEST_API_URL || 'https://cloudflare-workers-openapi-production.up.railway.app/';
 
     useEffect(() => {
         fetchSubCategories();

@@ -21,7 +21,7 @@ export const authOptions: AuthOptions = {
         }
 
         try {
-          const res = await fetch(`${process.env.NEST_API_URL || 'https://api-flat-icons.vercel.app'}/auth/signin`, {
+          const res = await fetch(`${process.env.NEST_API_URL || 'https://cloudflare-workers-openapi-production.up.railway.app'}/auth/signin`, {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({
@@ -84,7 +84,7 @@ export const authOptions: AuthOptions = {
       // Google login (Token Exchange)
       if (account?.provider === "google") {
         try {
-          const res = await fetch(`${process.env.NEST_API_URL || 'https://api-flat-icons.vercel.app'}/auth/social-login`, {
+          const res = await fetch(`${process.env.NEXT_PUBLIC_NEST_API_URL || 'https://cloudflare-workers-openapi-production.up.railway.app'}/auth/social-login`, {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({

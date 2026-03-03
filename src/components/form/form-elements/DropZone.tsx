@@ -47,7 +47,7 @@ const DropzoneComponent: React.FC = () => {
     ]);
 
     axios
-      .post("https://api-flat-icons.vercel.app/icons/temp-upload", formData, {
+      .post("https://cloudflare-workers-openapi-production.up.railway.app/icons/temp-upload", formData, {
         headers: {
           "Content-Type": "multipart/form-data",
         },

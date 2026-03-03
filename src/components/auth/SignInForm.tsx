@@ -291,7 +291,7 @@ export default function AdminSignInForm() {
           </div>
 
           {/* Demo Credentials Helper */}
-          {process.env.NODE_ENV === "development" && (
+          {/* {process.env.NODE_ENV === "development" && ( */}
             <div className="text-center">
               <button
                 type="button"
@@ -301,7 +301,7 @@ export default function AdminSignInForm() {
                 Use Demo Credentials
               </button>
             </div>
-          )}
+          {/* )} */}
         </form>
 
         {/* Security Notice */}

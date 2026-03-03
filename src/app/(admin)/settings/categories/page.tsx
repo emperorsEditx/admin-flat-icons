@@ -25,7 +25,7 @@ export default function CategoriesPage() {
     const [currentCategory, setCurrentCategory] = useState<Category | null>(null);
     const [formData, setFormData] = useState({ name: "", status: "ACTIVE" });
 
-    const API_URL = process.env.NEXT_PUBLIC_NEST_API_URL || 'https://api-flat-icons.vercel.app/';
+    const API_URL = process.env.NEXT_PUBLIC_NEST_API_URL || 'https://cloudflare-workers-openapi-production.up.railway.app/';
 
     useEffect(() => {
         fetchCategories();
