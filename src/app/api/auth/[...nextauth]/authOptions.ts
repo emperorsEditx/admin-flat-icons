@@ -21,7 +21,7 @@ export const authOptions: AuthOptions = {
         }
 
         try {
-          const res = await fetch(`${process.env.NEST_API_URL || 'http://127.0.0.1:8000'}/auth/signin`, {
+          const res = await fetch(`${process.env.NEST_API_URL || 'https://api-flat-icons.vercel.app'}/auth/signin`, {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({
@@ -84,7 +84,7 @@ export const authOptions: AuthOptions = {
       // Google login (Token Exchange)
       if (account?.provider === "google") {
         try {
-          const res = await fetch(`${process.env.NEST_API_URL || 'http://127.0.0.1:8000'}/auth/social-login`, {
+          const res = await fetch(`${process.env.NEST_API_URL || 'https://api-flat-icons.vercel.app'}/auth/social-login`, {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({
