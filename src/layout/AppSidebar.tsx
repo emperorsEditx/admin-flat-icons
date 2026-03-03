@@ -110,7 +110,7 @@ const othersItems: NavItem[] = [
 const AppSidebar: React.FC = () => {
   const { isExpanded, isMobileOpen, isHovered, setIsHovered } = useSidebar();
   const pathname = usePathname();
-  const API_URL = process.env.NEXT_PUBLIC_NEST_API_URL || "http://localhost:8000";
+  const API_URL = process.env.NEXT_PUBLIC_NEST_API_URL || "https://api-flat-icons.vercel.app/";
 
   const [stats, setStats] = useState({ draft: 0, underReview: 0, approved: 0 });
 

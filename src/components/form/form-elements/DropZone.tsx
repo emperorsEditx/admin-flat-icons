@@ -47,7 +47,7 @@ const DropzoneComponent: React.FC = () => {
     ]);
 
     axios
-      .post("http://localhost:8000/icons/temp-upload", formData, {
+      .post("https://api-flat-icons.vercel.app/icons/temp-upload", formData, {
         headers: {
           "Content-Type": "multipart/form-data",
         },

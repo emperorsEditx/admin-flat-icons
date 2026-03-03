@@ -22,7 +22,7 @@ export default function UnderReviewPage() {
     // const { data: session } = useSession();
     const [groups, setGroups] = useState<PendingGroup[]>([]);
     const [loading, setLoading] = useState(true);
-    const API_URL = process.env.NEXT_PUBLIC_NEST_API_URL || "http://localhost:8000";
+    const API_URL = process.env.NEXT_PUBLIC_NEST_API_URL || "https://api-flat-icons.vercel.app/";
 
     const fetchPending = async () => {
         setLoading(true);
