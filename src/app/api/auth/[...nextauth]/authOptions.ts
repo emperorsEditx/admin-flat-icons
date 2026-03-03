@@ -2,6 +2,11 @@ import { AuthOptions } from "next-auth";
 import CredentialsProvider from "next-auth/providers/credentials";
 import GoogleProvider from "next-auth/providers/google";
 
+// Get API URL with proper fallback
+const getAPIUrl = () => {
+  return process.env.NEST_API_URL?.replace(/\/$/, '') || 'https://cloudflare-workers-openapi-production.up.railway.app';
+};
+
 export const authOptions: AuthOptions = {
   secret: process.env.NEXTAUTH_SECRET,
   providers: [
@@ -21,9 +26,15 @@ export const authOptions: AuthOptions = {
         }
 
         try {
-          const res = await fetch(`${process.env.NEST_API_URL || 'https://cloudflare-workers-openapi-production.up.railway.app'}/auth/signin`, {
+          const apiUrl = getAPIUrl();
+          console.log("Using API URL:", apiUrl);
+          
+          const res = await fetch(`${apiUrl}/auth/signin`, {
             method: "POST",
-            headers: { "Content-Type": "application/json" },
+            headers: { 
+              "Content-Type": "application/json",
+              "Accept": "application/json",
+            },
             body: JSON.stringify({
               email: credentials?.email,
               password: credentials?.password,
@@ -41,6 +52,7 @@ export const authOptions: AuthOptions = {
 
           if (!res.ok) {
             const message = data?.message || data?.error || `Authentication failed (status: ${res.status})`;
+            console.error("Auth failed:", message);
             throw new Error(message);
           }
 
@@ -84,9 +96,13 @@ export const authOptions: AuthOptions = {
       // Google login (Token Exchange)
       if (account?.provider === "google") {
         try {
-          const res = await fetch(`${process.env.NEXT_PUBLIC_NEST_API_URL || 'https://cloudflare-workers-openapi-production.up.railway.app'}/auth/social-login`, {
+          const apiUrl = getAPIUrl();
+          const res = await fetch(`${apiUrl}/auth/social-login`, {
             method: "POST",
-            headers: { "Content-Type": "application/json" },
+            headers: { 
+              "Content-Type": "application/json",
+              "Accept": "application/json",
+            },
             body: JSON.stringify({
               email: user?.email,
               name: user?.name,
