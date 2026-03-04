@@ -31,7 +31,7 @@ interface SubCategory {
 export default function MyDraftsPage() {
   const DRAWER_WIDTH = 400;
   const { data: session, status } = useSession();
-  const API_URL = process.env.NEXT_PUBLIC_NEST_API_URL || "https://cloudflare-workers-openapi-production.up.railway.app/";
+  const API_URL = process.env.NEXT_PUBLIC_NEST_API_URL || "https://cloudflare-workers-openapi-production.up.railway.app";
 
   const [icons, setIcons] = useState<IconDraft[]>([]);
   const [loading, setLoading] = useState(true);

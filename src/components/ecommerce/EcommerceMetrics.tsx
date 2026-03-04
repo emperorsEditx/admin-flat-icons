@@ -2,7 +2,7 @@
 import React, { useEffect, useState } from "react";
 
 export const EcommerceMetrics = () => {
-  const API_URL = process.env.NEXT_PUBLIC_NEST_API_URL || "https://cloudflare-workers-openapi-production.up.railway.app/";
+  const API_URL = process.env.NEXT_PUBLIC_NEST_API_URL || "https://cloudflare-workers-openapi-production.up.railway.app";
   const [stats, setStats] = useState({ draft: 0, underReview: 0, approved: 0 });
 
   useEffect(() => {

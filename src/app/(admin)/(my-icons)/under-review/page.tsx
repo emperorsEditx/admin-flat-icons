@@ -22,7 +22,7 @@ export default function UnderReviewPage() {
     // const { data: session } = useSession();
     const [groups, setGroups] = useState<PendingGroup[]>([]);
     const [loading, setLoading] = useState(true);
-    const API_URL = process.env.NEXT_PUBLIC_NEST_API_URL || "https://cloudflare-workers-openapi-production.up.railway.app/";
+    const API_URL = process.env.NEXT_PUBLIC_NEST_API_URL || "https://cloudflare-workers-openapi-production.up.railway.app";
 
     const fetchPending = async () => {
         setLoading(true);
