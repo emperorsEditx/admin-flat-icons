@@ -34,13 +34,7 @@ const navItems: NavItem[] = [
   {
     icon: <CalenderIcon />,
     name: "My Icons",
-    path: "/calendar",
-    subItems: [
-      { name: "Upload", path: "/upload", count: true },
-      { name: "Draft", path: "/draft", count: true },
-      { name: "Under Review", path: "/under-review", count: true },
-      { name: "Not Approved", path: "/calendar", count: true },
-    ],
+    path: "/upload",
   },
   {
     icon: <UserCircleIcon />,
@@ -117,7 +111,7 @@ const AppSidebar: React.FC = () => {
   useEffect(() => {
     const fetchStats = async () => {
       try {
-        const res = await fetch(`${API_URL}/icons/stats`);
+        const res = await fetch(`${API_URL}icons/stats`);
         if (res.ok) {
           const data = await res.json();
           setStats(data);
@@ -269,7 +263,12 @@ const AppSidebar: React.FC = () => {
   const subMenuRefs = useRef<Record<string, HTMLDivElement | null>>({});
 
   // const isActive = (path: string) => path === pathname;
-  const isActive = useCallback((path: string) => path === pathname, [pathname]);
+  const isActive = useCallback((path: string) => {
+    if (path === '/upload') {
+      return pathname === '/upload' || pathname === '/draft' || pathname === '/under-review';
+    }
+    return path === pathname;
+  }, [pathname]);
 
   useEffect(() => {
     // Check if the current path matches any submenu item

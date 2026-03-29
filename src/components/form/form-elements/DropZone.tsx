@@ -72,6 +72,7 @@ const DropzoneComponent: React.FC = () => {
           )
         );
         setShowSuccessMessage(true);
+        window.dispatchEvent(new Event("iconsUpdated"));
       })
       .catch(() => {
         setUploadedFiles((prev) =>

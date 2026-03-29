@@ -1,7 +1,7 @@
 "use client";
 
 import PageBreadcrumb from "@/components/common/PageBreadCrumb";
-import React, { useEffect, useState } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { TagsInput } from "react-tag-input-component";
 import { useSession } from "next-auth/react";
 import { toast } from "@iamqitmeer/toster";
@@ -35,8 +35,12 @@ export default function MyDraftsPage() {
 
   const [icons, setIcons] = useState<IconDraft[]>([]);
   const [loading, setLoading] = useState(true);
-  const [openDrawerIndex, setOpenDrawerIndex] = useState<number | null>(null);
+  const [lastSelectedIndex, setLastSelectedIndex] = useState<number | null>(null);
   const [openMenuIndex, setOpenMenuIndex] = useState<number | null>(null);
+
+  // Replace File State
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const [replacingId, setReplacingId] = useState<number | null>(null);
 
   // Form State
   const [tags, setTags] = useState<string[]>([]);
@@ -52,6 +56,9 @@ export default function MyDraftsPage() {
   const [filteredSubCategories, setFilteredSubCategories] = useState<SubCategory[]>([]);
   const [existingTags, setExistingTags] = useState<string[]>([]);
 
+  const selectedIcons = icons.filter((i) => i.selected);
+  const isDrawerOpen = selectedIcons.length > 0;
+
   /* -----------------------------------------------------
      FETCH DATA (DRAFTS + METADATA)
   ----------------------------------------------------- */
@@ -63,10 +70,10 @@ export default function MyDraftsPage() {
       setLoading(true);
       try {
         const [iconsRes, catsRes, subCatsRes, tagsRes] = await Promise.all([
-          fetch(`${API_URL}/icons/drafts/${session.user.id}`),
-          fetch(`${API_URL}/categories`),
-          fetch(`${API_URL}/sub-categories`),
-          fetch(`${API_URL}/tags`)
+          fetch(`${API_URL}icons/drafts/${session.user.id}`),
+          fetch(`${API_URL}categories`),
+          fetch(`${API_URL}sub-categories`),
+          fetch(`${API_URL}tags`)
         ]);
 
         const iconsData = await iconsRes.json();
@@ -127,53 +134,86 @@ export default function MyDraftsPage() {
   }, [category, subCategories]);
 
   /* -----------------------------------------------------
-     DRAWER OPEN LOGIC
+     DRAWER HYDRATION LOGIC
   ----------------------------------------------------- */
   useEffect(() => {
-    if (openDrawerIndex === null || !icons[openDrawerIndex]) return;
+    if (selectedIcons.length === 0) return;
 
-    const icon = icons[openDrawerIndex];
-    setTitle(icon.title);
-    setCategory(icon.category_id ? String(icon.category_id) : "");
-    setSubCategory(icon.sub_category_id ? String(icon.sub_category_id) : "");
-    setStyle(icon.style || "");
-    setTags(Array.from(new Set((icon as any).tags?.map((t: any) => typeof t === "string" ? t : t.name).filter(Boolean) || [])) as string[]);
+    if (selectedIcons.length === 1) {
+      const icon = selectedIcons[0];
+      setTitle(icon.title);
+      setCategory(icon.category_id ? String(icon.category_id) : "");
+      setSubCategory(icon.sub_category_id ? String(icon.sub_category_id) : "");
+      setStyle(icon.style || "");
+      setTags(Array.from(new Set((icon as any).tags?.map((t: any) => typeof t === "string" ? t : t.name).filter(Boolean) || [])) as string[]);
 
-    const nameTags = icon.title
-      .toLowerCase()
-      .split(/[\s-_]+/)
-      .filter((word: string) => word.length > 2);
-    setSuggestions(Array.from(new Set([...nameTags, "ui", "svg", "web", "icon", ...existingTags])));
-  }, [openDrawerIndex, icons, existingTags]);
+      const nameTags = icon.title
+        .toLowerCase()
+        .split(/[\s-_]+/)
+        .filter((word: string) => word.length > 2);
+      setSuggestions(Array.from(new Set([...nameTags, "ui", "svg", "web", "icon", ...existingTags])));
+    } else {
+      setTitle("");
+      setCategory("");
+      setSubCategory("");
+      setStyle("");
+      setTags([]);
+      setSuggestions(Array.from(new Set(["ui", "svg", "web", "icon", ...existingTags])));
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [icons.filter(i => i.selected).map(i => i.id).join(","), existingTags]);
 
   /* -----------------------------------------------------
-     UPDATE ICON (PATCH)
+     UPDATE ICONS (PATCH)
   ----------------------------------------------------- */
-  const updateIcon = async (data: Partial<IconDraft> & { tags?: string[] }) => {
-    if (openDrawerIndex === null) return;
-    const icon = icons[openDrawerIndex];
+  const updateIcons = async (data: Partial<IconDraft> & { tags?: string[] }) => {
+    if (selectedIcons.length === 0) return;
 
     try {
-      await fetch(`${API_URL}/icons/${icon.id}`, {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          title: data.title,
-          categoryId: data.category_id,
-          subCategoryId: data.sub_category_id,
-          style: data.style,
-          tags: data.tags
-        })
+      const promises = selectedIcons.map(icon => {
+        const payload: any = {};
+        if (selectedIcons.length === 1 && data.title) payload.title = data.title;
+        if (data.category_id) payload.categoryId = data.category_id;
+        if (data.sub_category_id) payload.subCategoryId = data.sub_category_id;
+        if (data.style) payload.style = data.style;
+        if (data.tags && data.tags.length > 0) payload.tags = data.tags;
+
+        if (Object.keys(payload).length === 0) {
+          return Promise.resolve({ ok: true });
+        }
+
+        return fetch(`${API_URL}icons/${icon.id}`, {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload)
+        });
       });
 
-      // Mark icon as saved (checkbox appears) and auto-select it
-      const updatedIcons = [...icons];
-      // Emulate the backend's tag structure to prevent parsing issues
-      const normalizedTags = data.tags?.map(t => typeof t === "string" ? { name: t } : t) || [];
-      updatedIcons[openDrawerIndex] = { ...icon, ...data, tags: normalizedTags, saved: true, selected: true } as any;
+      const results = await Promise.all(promises);
+      const failed = results.find(r => !(r as Response).ok && (r as any).ok !== true);
+      if (failed) throw new Error("One or more icons failed to update");
+
+      const updatedIcons = icons.map(icon => {
+        if (icon.selected) {
+          const normalizedTags = data.tags && data.tags.length > 0
+            ? data.tags.map((t: string) => ({ name: t }))
+            : (icon as any).tags || [];
+
+          return {
+            ...icon,
+            ...(data.title && selectedIcons.length === 1 ? { title: data.title } : {}),
+            ...(data.category_id ? { category_id: data.category_id } : {}),
+            ...(data.sub_category_id ? { sub_category_id: data.sub_category_id } : {}),
+            ...(data.style ? { style: data.style } : {}),
+            ...(data.tags && data.tags.length > 0 ? { tags: normalizedTags } : {}),
+            saved: true
+          } as any;
+        }
+        return icon;
+      });
       setIcons(updatedIcons);
     } catch (error) {
-      console.error("Failed to update icon", error);
+      console.error("Failed to update icons", error);
       throw error;
     }
   };
@@ -182,83 +222,77 @@ export default function MyDraftsPage() {
      SAVE DRAFT
   ----------------------------------------------------- */
   const handleSaveDraft = async () => {
-    const savePromise = updateIcon({
-      title,
-      category_id: category ? Number(category) : null,
-      sub_category_id: subCategory ? Number(subCategory) : null,
-      style: style as "OUTLINE" | "FILL",
-      tags
+    const savePromise = updateIcons({
+      title: selectedIcons.length === 1 ? title : undefined,
+      category_id: category ? Number(category) : undefined,
+      sub_category_id: subCategory ? Number(subCategory) : undefined,
+      style: style ? (style as "OUTLINE" | "FILL") : undefined,
+      tags: tags.length > 0 ? tags : undefined
     });
 
     toast.promise(savePromise, {
-      loading: "Saving draft...",
-      success: "Draft saved!",
-      error: "Failed to save draft"
+      loading: `Saving ${selectedIcons.length} draft(s)...`,
+      success: "Draft(s) saved!",
+      error: "Failed to save draft(s)"
     });
   };
 
   /* -----------------------------------------------------
-     TOGGLE CHECKBOX SELECTION
+     SELECT HANDLER (Shift, Ctrl, Regular)
   ----------------------------------------------------- */
-  const toggleSelect = (id: number) => {
-    setIcons(prev => prev.map(i => i.id === id ? { ...i, selected: !i.selected } : i));
+  const handleIconClick = (e: React.MouseEvent, index: number) => {
+    e.stopPropagation();
+
+    if (e.shiftKey && lastSelectedIndex !== null) {
+      const start = Math.min(lastSelectedIndex, index);
+      const end = Math.max(lastSelectedIndex, index);
+      setIcons(prev => prev.map((icon, i) => ({
+        ...icon,
+        selected: i >= start && i <= end
+      })));
+    } else if (e.ctrlKey || e.metaKey) {
+      setIcons(prev => prev.map((icon, i) => i === index ? { ...icon, selected: !icon.selected } : icon));
+      setLastSelectedIndex(index);
+    } else {
+      setIcons(prev => prev.map((icon, i) => ({
+        ...icon,
+        selected: i === index
+      })));
+      setLastSelectedIndex(index);
+    }
   };
 
   /* -----------------------------------------------------
      SUBMIT — publishes ALL selected icons
   ----------------------------------------------------- */
   const handleSubmit = async () => {
-    const selectedIcons = icons.filter(i => i.selected);
+    if (selectedIcons.length === 0) return;
 
-    // No selected icons at all — validate and publish just the open drawer icon
-    if (selectedIcons.length === 0) {
-      if (openDrawerIndex === null) return;
-      const icon = icons[openDrawerIndex];
+    const invalid = selectedIcons.some(i => {
+      const cat = category ? Number(category) : i.category_id;
+      const subCat = subCategory ? Number(subCategory) : i.sub_category_id;
+      return !cat || !subCat;
+    });
 
-      if (!category || !subCategory) {
-        toast.error("Please select Category and Sub-Category", { duration: 3000 });
-        return;
-      }
-
-      const publishSingle = async () => {
-        await updateIcon({
-          title,
-          category_id: Number(category),
-          sub_category_id: Number(subCategory),
-          style: style as "OUTLINE" | "FILL",
-          tags
-        });
-
-        const res = await fetch(`${API_URL}/icons/${icon.id}/publish`, { method: 'POST' });
-        if (!res.ok) throw new Error("Failed to submit icon");
-
-        setIcons(prev => prev.filter(i => i.id !== icon.id));
-        setOpenDrawerIndex(null);
-        return "Icon submitted successfully!";
-      };
-
-      toast.promise(publishSingle(), {
-        loading: "Submitting icon...",
-        success: (msg) => String(msg),
-        error: (err) => err?.message || "An error occurred while submitting"
-      });
-      return;
-    }
-
-    // Validate all selected icons have required metadata
-    const invalid = selectedIcons.some(i => !i.category_id || !i.sub_category_id);
     if (invalid) {
       toast.error(
-        "Some selected icons are missing Category or Sub-Category. Please fill them in and save again.",
+        "Some selected icons are missing Category or Sub-Category. Please assign them.",
         { duration: 4000 }
       );
       return;
     }
 
-    // Publish all selected icons
     const publishMultiple = async () => {
+      await updateIcons({
+        title: selectedIcons.length === 1 ? title : undefined,
+        category_id: category ? Number(category) : undefined,
+        sub_category_id: subCategory ? Number(subCategory) : undefined,
+        style: style ? (style as "OUTLINE" | "FILL") : undefined,
+        tags: tags.length > 0 ? tags : undefined
+      });
+
       const publishPromises = selectedIcons.map(i =>
-        fetch(`${API_URL}/icons/${i.id}/publish`, { method: 'POST' })
+        fetch(`${API_URL}icons/${i.id}/publish`, { method: 'POST' })
       );
       const results = await Promise.all(publishPromises);
       const successfulIds: number[] = [];
@@ -268,7 +302,7 @@ export default function MyDraftsPage() {
 
       if (successfulIds.length > 0) {
         setIcons(prev => prev.filter(i => !successfulIds.includes(i.id)));
-        setOpenDrawerIndex(null);
+        window.dispatchEvent(new Event("iconsUpdated"));
       }
 
       if (successfulIds.length < selectedIcons.length) {
@@ -280,7 +314,7 @@ export default function MyDraftsPage() {
     };
 
     toast.promise(publishMultiple(), {
-      loading: "Submitting icons...",
+      loading: `Submitting ${selectedIcons.length} icon(s)...`,
       success: (msg) => String(msg),
       error: (err) => err?.message || "An error occurred while submitting icons"
     });
@@ -293,15 +327,51 @@ export default function MyDraftsPage() {
     e.stopPropagation();
     if (!confirm("Delete draft?")) return;
     try {
-      await fetch(`${API_URL}/icons/drafts/${id}`, { method: 'DELETE' });
+      await fetch(`${API_URL}icons/drafts/${id}`, { method: 'DELETE' });
       setIcons(icons.filter(i => i.id !== id));
-      if (openDrawerIndex !== null && icons[openDrawerIndex]?.id === id) setOpenDrawerIndex(null);
+      window.dispatchEvent(new Event("iconsUpdated"));
     } catch (err) {
       console.error(err);
     }
   };
 
-  const selectedCount = icons.filter(i => i.selected).length;
+  /* -----------------------------------------------------
+     REPLACE FILE
+  ----------------------------------------------------- */
+  const handleReplaceClick = (e: React.MouseEvent, id: number) => {
+    e.stopPropagation();
+    setReplacingId(id);
+    setOpenMenuIndex(null);
+    if (fileInputRef.current) {
+      fileInputRef.current.click();
+    }
+  };
+
+  const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (!e.target.files || e.target.files.length === 0 || replacingId === null) return;
+    const file = e.target.files[0];
+    
+    // reset input
+    e.target.value = '';
+
+    const formData = new FormData();
+    formData.append("files", file);
+
+    const promise = fetch(`${API_URL}icons/${replacingId}/replace`, {
+      method: "PATCH",
+      body: formData,
+    }).then(async res => {
+      if (!res.ok) throw new Error("Replace failed");
+      const updated = await res.json();
+      setIcons(prev => prev.map(icon => icon.id === replacingId ? { ...icon, title: updated.title, path: updated.path } : icon));
+    });
+
+    toast.promise(promise, {
+      loading: "Replacing icon...",
+      success: "Icon replaced successfully",
+      error: "Failed to replace icon",
+    });
+  };
 
   if (status === "loading") return <div className="p-10">Loading session...</div>;
   if (!session) return <div className="p-10">Please log in.</div>;
@@ -316,7 +386,7 @@ export default function MyDraftsPage() {
           className="grid gap-3 justify-center transition-all duration-300"
           style={{
             gridTemplateColumns: `repeat(auto-fit, minmax(200px, 200px))`,
-            maxWidth: openDrawerIndex !== null ? `calc(100% - ${DRAWER_WIDTH}px)` : '100%',
+            maxWidth: isDrawerOpen ? `calc(100% - ${DRAWER_WIDTH}px)` : '100%',
           }}
         >
           {loading && (
@@ -331,8 +401,8 @@ export default function MyDraftsPage() {
             icons.map((icon, index) => (
               <div
                 key={icon.id}
-                onClick={() => setOpenDrawerIndex(index)}
-                className={`bg-white dark:bg-gray-700 rounded-lg shadow-md p-3 flex flex-col justify-between w-50 h-40 hover:shadow-md transition-shadow cursor-pointer relative group ${openDrawerIndex === index ? "ring-2 ring-green-500" : ""
+                onClick={(e) => handleIconClick(e, index)}
+                className={`bg-white dark:bg-gray-700 rounded-lg shadow-md p-3 flex flex-col justify-between w-50 h-40 hover:shadow-md transition-shadow cursor-pointer relative group ${icon.selected ? "ring-2 ring-green-500" : ""
                   }`}
               >
                 <div className="w-full flex justify-between items-start mb-2 px-2 relative">
@@ -351,23 +421,11 @@ export default function MyDraftsPage() {
                         setOpenMenuIndex(openMenuIndex === index ? null : index);
                       }}
                     >
-                      {/* 3 dots SVG */}
-                      <svg
-                        width="24"
-                        height="24"
-                        viewBox="0 0 24 24"
-                        fill="none"
-                      >
-                        <path
-                          fillRule="evenodd"
-                          clipRule="evenodd"
-                          d="M5.99902 10.4951C6.82745 10.4951 7.49902 11.1667 7.49902 11.9951V12.0051C7.49902 12.8335 6.82745 13.5051 5.99902 13.5051C5.1706 13.5051 4.49902 12.8335 4.49902 12.0051V11.9951C4.49902 11.1667 5.1706 10.4951 5.99902 10.4951ZM17.999 10.4951C18.8275 10.4951 19.499 11.1667 19.499 11.9951V12.0051C19.499 12.8335 18.8275 13.5051 17.999 13.5051C17.1706 13.5051 16.499 12.8335 16.499 12.0051V11.9951C16.499 11.1667 17.1706 10.4951 17.999 10.4951ZM13.499 11.9951C13.499 11.1667 12.8275 10.4951 11.999 10.4951C11.1706 10.4951 10.499 11.1667 10.499 11.9951V12.0051C10.499 12.8335 11.1706 13.5051 11.999 13.5051C12.8275 13.5051 13.499 12.8335 13.499 12.0051V11.9951Z"
-                          fill="currentColor"
-                        />
+                      <svg width="24" height="24" viewBox="0 0 24 24" fill="none">
+                        <path fillRule="evenodd" clipRule="evenodd" d="M5.99902 10.4951C6.82745 10.4951 7.49902 11.1667 7.49902 11.9951V12.0051C7.49902 12.8335 6.82745 13.5051 5.99902 13.5051C5.1706 13.5051 4.49902 12.8335 4.49902 12.0051V11.9951C4.49902 11.1667 5.1706 10.4951 5.99902 10.4951ZM17.999 10.4951C18.8275 10.4951 19.499 11.1667 19.499 11.9951V12.0051C19.499 12.8335 18.8275 13.5051 17.999 13.5051C17.1706 13.5051 16.499 12.8335 16.499 12.0051V11.9951C16.499 11.1667 17.1706 10.4951 17.999 10.4951ZM13.499 11.9951C13.499 11.1667 12.8275 10.4951 11.999 10.4951C11.1706 10.4951 10.499 11.1667 10.499 11.9951V12.0051C10.499 12.8335 11.1706 13.5051 11.999 13.5051C12.8275 13.5051 13.499 12.8335 13.499 12.0051V11.9951Z" fill="currentColor" />
                       </svg>
                     </button>
 
-                    {/* Dropdown */}
                     {openMenuIndex === index && (
                       <div
                         className="absolute right-0 mt-2 w-32 bg-white dark:bg-gray-800 rounded-lg shadow-lg border dark:border-gray-700 z-50"
@@ -375,20 +433,13 @@ export default function MyDraftsPage() {
                       >
                         <button
                           className="w-full text-left px-4 py-2 text-sm hover:bg-gray-100 dark:hover:bg-gray-700"
-                          onClick={() => {
-                            console.log("Replace", icon.id);
-                            setOpenMenuIndex(null);
-                          }}
+                          onClick={(e) => handleReplaceClick(e, icon.id)}
                         >
                           Replace
                         </button>
-
                         <button
                           className="w-full text-left px-4 py-2 text-sm text-red-500 hover:bg-gray-100 dark:hover:bg-gray-700"
-                          onClick={(e) => {
-                            handleDelete(e, icon.id);
-                            setOpenMenuIndex(null);
-                          }}
+                          onClick={(e) => { handleDelete(e, icon.id); setOpenMenuIndex(null); }}
                         >
                           Delete
                         </button>
@@ -402,54 +453,70 @@ export default function MyDraftsPage() {
                     src={`https://pub-e598b9aaee344c728dd117b85cd19c87.r2.dev/${icon.path}`}
                     alt="icon preview"
                     className="w-20 h-20 object-cover"
+                    width={20}
+                    height={20}
+                    loading="lazy"
                   />
                 </div>
                 {/* Checking Icon — only shown after icon has been saved */}
                 {icon.saved && (
-                  <label
-                    onClick={(e) => { e.stopPropagation(); toggleSelect(icon.id); }}
-                    className={`absolute bottom-2 left-2 rounded-full p-1 cursor-pointer transition-colors shadow-sm border border-transparent ${icon.selected
-                      ? "bg-green-500 text-white"
-                      : "bg-white/90 dark:bg-gray-800/80 text-gray-300 hover:text-green-500 hover:border-green-300"
-                      }`}
-                    title="Saved - Click to select for submission"
+                  <div
+                    className="absolute bottom-2 left-2 rounded-full p-1 bg-green-500 text-white shadow-sm pointer-events-none"
+                    title="Saved Draft"
                   >
                     <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
                       <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
                     </svg>
-                  </label>
+                  </div>
                 )}
               </div>
             ))}
         </div>
 
+        {/* HIDDEN FILE INPUT FOR REPLACE */}
+        <input 
+          type="file" 
+          ref={fileInputRef} 
+          style={{ display: 'none' }} 
+          accept="image/svg+xml,image/png" 
+          onChange={handleFileChange} 
+        />
+
         {/* DRAWER */}
         <div
-          className={`fixed top-0 right-0 h-full pt-20 bg-white dark:bg-gray-800 border-l border-gray-200 dark:border-gray-700 shadow-xl z-50 transform transition-transform duration-300 ${openDrawerIndex !== null ? "translate-x-0" : "translate-x-full"
+          className={`fixed top-0 right-0 h-full pt-20 bg-white dark:bg-gray-800 border-l border-gray-200 dark:border-gray-700 shadow-xl z-50 transform transition-transform duration-300 ${isDrawerOpen ? "translate-x-0" : "translate-x-full"
             }`}
           style={{ width: `${DRAWER_WIDTH}px` }}
         >
           <div className="flex items-center justify-between p-4 border-b border-gray-200 dark:border-gray-700">
-            <h2 className="text-lg font-semibold text-gray-800 dark:text-gray-100">Icon Details</h2>
-            {selectedCount > 0 && (
+            <h2 className="text-lg font-semibold text-gray-800 dark:border-gray-100">
+              {selectedIcons.length > 1 ? "Bulk Edit Selected" : "Icon Details"}
+            </h2>
+            {selectedIcons.length > 0 && (
               <span className="text-xs bg-green-100 text-green-700 rounded-full px-2 py-0.5 font-medium border border-green-200 shadow-sm">
-                {selectedCount} selected
+                {selectedIcons.length} selected
               </span>
             )}
           </div>
 
-          {openDrawerIndex !== null && icons[openDrawerIndex] && (
+          {isDrawerOpen && (
             <div className="p-5 space-y-5 overflow-y-auto max-h-[calc(100%-80px)]">
               {/* TITLE */}
               <div className="space-y-1">
                 <label className="text-sm font-normal">Title</label>
-                <input
-                  type="text"
-                  value={title}
-                  onChange={(e) => setTitle(e.target.value)}
-                  placeholder="Add title"
-                  className="w-full border-b-2 text-sm focus:border-green-600 outline-none py-1 px-1"
-                />
+                {selectedIcons.length > 1 ? (
+                  <div className="w-full border-b-2 text-sm text-gray-500 bg-gray-50 dark:bg-gray-800/50 outline-none py-1 px-2 cursor-not-allowed">
+                    [Multiple Selected] Name cannot be bulk edited
+                  </div>
+                ) : (
+                  <input
+                    type="text"
+                    value={title}
+                    onChange={(e) => setTitle(e.target.value)}
+                    placeholder="Add title"
+                    className="w-full border-b-2 text-sm focus:border-green-600 outline-none py-1 px-1"
+                  />
+                )}
               </div>
 
               {/* CATEGORY */}
@@ -539,19 +606,19 @@ export default function MyDraftsPage() {
                   onClick={handleSaveDraft}
                   className="flex-1 py-2 rounded-full bg-[#0A2F3E] text-gray-200 font-semibold hover:bg-gray-900 transition"
                 >
-                  Save
+                  {selectedIcons.length > 1 ? "Save Multiple" : "Save"}
                 </button>
                 <button
                   onClick={handleSubmit}
                   className="flex-1 py-2 rounded-full bg-[#00A654] text-white font-semibold hover:bg-green-700 transition shadow-sm"
                 >
-                  {selectedCount > 0 ? (selectedCount > 1 ? `Submit Selected (${selectedCount})` : "Submit Selected") : "Submit"}
+                  {selectedIcons.length > 0 ? (selectedIcons.length > 1 ? `Submit Selected (${selectedIcons.length})` : "Submit Selected") : "Submit"}
                 </button>
               </div>
 
-              {selectedCount > 0 && (
+              {selectedIcons.length > 0 && (
                 <p className="text-xs text-gray-400 text-center">
-                  Clicking Submit will publish {selectedCount} selected icon{selectedCount > 1 ? "s" : ""}
+                  Clicking Submit will publish {selectedIcons.length} selected icon{selectedIcons.length > 1 ? "s" : ""}
                 </p>
               )}
             </div>

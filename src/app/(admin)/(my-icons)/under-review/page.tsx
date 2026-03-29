@@ -15,6 +15,7 @@ interface Icon {
 
 interface PendingGroup {
     userId: number;
+    userName?: string;
     icons: Icon[];
 }
 
@@ -27,7 +28,7 @@ export default function UnderReviewPage() {
     const fetchPending = async () => {
         setLoading(true);
         try {
-            const res = await fetch(`${API_URL}/icons/pending`);
+            const res = await fetch(`${API_URL}icons/pending`);
             if (res.ok) {
                 const data = await res.json();
                 setGroups(data);
@@ -85,7 +86,7 @@ export default function UnderReviewPage() {
                             <div className="flex justify-between items-center mb-6">
                                 <div>
                                     <h2 className="text-xl font-semibold text-gray-800 dark:text-white">
-                                        User ID: {group.userId}
+                                        {group.userName || `User ID: ${group.userId}`}
                                     </h2>
                                     <p className="text-sm text-gray-500">
                                         Submitted {group.icons.length} icons • {new Date(group.icons[0].created_at).toLocaleDateString()}
@@ -111,6 +112,9 @@ export default function UnderReviewPage() {
                                             src={`https://pub-e598b9aaee344c728dd117b85cd19c87.r2.dev/${icon.path}`}
                                             alt={icon.title}
                                             className="w-full h-full object-contain"
+                                            width={100}
+                                            height={100}
+                                            loading="lazy"
                                         />
                                         <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity rounded-lg flex items-center justify-center">
                                             <span className="text-white text-xs font-medium px-2 py-1 bg-black/50 rounded backdrop-blur-sm">
