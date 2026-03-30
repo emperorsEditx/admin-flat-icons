@@ -33,7 +33,7 @@ export default function CategoriesPage() {
 
     const fetchCategories = async () => {
         try {
-            const res = await fetch(`${API_URL}/categories`, {
+            const res = await fetch(`${API_URL}categories`, {
                 // headers: { Authorization: `Bearer ${session?.user?.accessToken}` } // Uncomment when backend protects it
             });
             const data = await res.json();
@@ -50,8 +50,8 @@ export default function CategoriesPage() {
         try {
             const method = currentCategory ? "PATCH" : "POST";
             const url = currentCategory
-                ? `${API_URL}/categories/${currentCategory.id}`
-                : `${API_URL}/categories`;
+                ? `${API_URL}categories/${currentCategory.id}`
+                : `${API_URL}categories`;
 
             const res = await fetch(url, {
                 method,
@@ -75,7 +75,7 @@ export default function CategoriesPage() {
     const handleDelete = async (id: number) => {
         if (!confirm("Are you sure you want to delete this category?")) return;
         try {
-            await fetch(`${API_URL}/categories/${id}`, {
+            await fetch(`${API_URL}categories/${id}`, {
                 method: "DELETE",
                 // headers: { Authorization: `Bearer ${session?.user?.accessToken}` }
             });

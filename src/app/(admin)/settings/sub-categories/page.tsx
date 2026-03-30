@@ -43,7 +43,7 @@ export default function SubCategoriesPage() {
 
     const fetchSubCategories = async () => {
         try {
-            const res = await fetch(`${API_URL}/sub-categories`);
+            const res = await fetch(`${API_URL}sub-categories`);
             const data = await res.json();
             setSubCategories(data);
         } catch (error) {
@@ -55,7 +55,7 @@ export default function SubCategoriesPage() {
 
     const fetchCategories = async () => {
         try {
-            const res = await fetch(`${API_URL}/categories`);
+            const res = await fetch(`${API_URL}categories`);
             const data = await res.json();
             setCategories(data);
         } catch (error) {
@@ -73,8 +73,8 @@ export default function SubCategoriesPage() {
         try {
             const method = currentSubCategory ? "PATCH" : "POST";
             const url = currentSubCategory
-                ? `${API_URL}/sub-categories/${currentSubCategory.id}`
-                : `${API_URL}/sub-categories`;
+                ? `${API_URL}sub-categories/${currentSubCategory.id}`
+                : `${API_URL}sub-categories`;
 
             const payload = {
                 ...formData,
@@ -104,7 +104,7 @@ export default function SubCategoriesPage() {
     const handleDelete = async (id: number) => {
         if (!confirm("Are you sure you want to delete this sub-category?")) return;
         try {
-            await fetch(`${API_URL}/sub-categories/${id}`, {
+            await fetch(`${API_URL}sub-categories/${id}`, {
                 method: "DELETE",
             });
             fetchSubCategories();
