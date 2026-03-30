@@ -35,6 +35,12 @@ const navItems: NavItem[] = [
     icon: <CalenderIcon />,
     name: "My Icons",
     path: "/upload",
+    // subItems: [
+    //   { name: "All Icons", path: "/all", count: true },
+    //   { name: "Upload", path: "/upload", count: false },
+    //   { name: "Draft", path: "/draft", count: true },
+    //   { name: "Under Review", path: "/under-review", count: true },
+    // ],
   },
   {
     icon: <UserCircleIcon />,
@@ -125,6 +131,8 @@ const AppSidebar: React.FC = () => {
 
   const getCountForMenu = (name: string) => {
     switch (name) {
+      case "All Icons":
+        return stats.draft + stats.underReview + stats.approved;
       case "Draft":
         return stats.draft;
       case "Under Review":

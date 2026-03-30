@@ -32,8 +32,9 @@ const AppHeader: React.FC = () => {
     return () => window.removeEventListener("iconsUpdated", fetchStats);
   }, [API_URL]);
 
-  const isMyIconsRoute = pathname === "/upload" || pathname === "/draft" || pathname === "/under-review";
+  const isMyIconsRoute = pathname === "/upload" || pathname === "/all" || pathname === "/draft" || pathname === "/under-review";
   const tabs = [
+    { name: "All", path: "/all", count: stats.draft + stats.underReview + stats.approved },
     { name: "Upload", path: "/upload" },
     { name: "Draft", path: "/draft", count: stats.draft },
     { name: "Under Review", path: "/under-review", count: stats.underReview },
