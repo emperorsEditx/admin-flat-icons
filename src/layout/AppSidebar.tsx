@@ -273,7 +273,7 @@ const AppSidebar: React.FC = () => {
   // const isActive = (path: string) => path === pathname;
   const isActive = useCallback((path: string) => {
     if (path === '/upload') {
-      return pathname === '/upload' || pathname === '/draft' || pathname === '/under-review';
+      return pathname === '/upload' || pathname === '/draft' || pathname === '/under-review' || pathname === '/all';
     }
     return path === pathname;
   }, [pathname]);
