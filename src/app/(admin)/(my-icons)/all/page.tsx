@@ -3,6 +3,7 @@
 import React, { useEffect, useState, useMemo } from "react";
 import PageBreadcrumb from "@/components/common/PageBreadCrumb";
 import { useSession } from "next-auth/react";
+import { proxyApiUrl } from "@/lib/api";
 
 interface IconItem {
   id: number;
@@ -80,7 +81,6 @@ export default function AllIconsPage() {
   const { data: session, status } = useSession();
   const [icons, setIcons] = useState<IconItem[]>([]);
   const [loading, setLoading] = useState(true);
-  const API_URL = process.env.NEXT_PUBLIC_NEST_API_URL || "https://cloudflare-workers-openapi-production.up.railway.app";
 
   useEffect(() => {
     if (status === "loading") return;
@@ -90,9 +90,9 @@ export default function AllIconsPage() {
       setLoading(true);
       try {
         const [draftRes, pendingRes, approvedRes] = await Promise.all([
-          fetch(`${API_URL}icons/drafts/${session.user.id}`),
-          fetch(`${API_URL}icons/pending`),
-          fetch(`${API_URL}icons/approved`),
+          fetch(proxyApiUrl(`icons/drafts/${session.user.id}`)),
+          fetch(proxyApiUrl("icons/pending")),
+          fetch(proxyApiUrl("icons/approved")),
         ]);
 
         const drafts: IconItem[] = draftRes.ok ? await draftRes.json() : [];
@@ -132,7 +132,7 @@ export default function AllIconsPage() {
     };
 
     fetchData();
-  }, [API_URL, session, status]);
+  }, [session, status]);
 
   // Group icons by status
   const groupedIcons = useMemo(() => {

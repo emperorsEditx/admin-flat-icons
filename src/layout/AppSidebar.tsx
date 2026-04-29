@@ -110,14 +110,13 @@ const othersItems: NavItem[] = [
 const AppSidebar: React.FC = () => {
   const { isExpanded, isMobileOpen, isHovered, setIsHovered } = useSidebar();
   const pathname = usePathname();
-  const API_URL = process.env.NEXT_PUBLIC_NEST_API_URL || "https://cloudflare-workers-openapi-production.up.railway.app";
 
   const [stats, setStats] = useState({ draft: 0, underReview: 0, approved: 0 });
 
   useEffect(() => {
     const fetchStats = async () => {
       try {
-        const res = await fetch(`${API_URL}icons/stats`);
+        const res = await fetch("/api/icons/stats");
         if (res.ok) {
           const data = await res.json();
           setStats(data);
@@ -127,7 +126,7 @@ const AppSidebar: React.FC = () => {
       }
     };
     fetchStats();
-  }, [API_URL]);
+  }, []);
 
   const getCountForMenu = (name: string) => {
     switch (name) {

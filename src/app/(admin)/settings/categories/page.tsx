@@ -4,6 +4,7 @@ import { Modal } from "@/components/ui/modal";
 import Input from "@/components/form/input/InputField";
 import Label from "@/components/form/Label";
 import Badge from "@/components/ui/badge/Badge";
+import { proxyApiUrl } from "@/lib/api";
 import {
     Table,
     TableBody,
@@ -25,15 +26,13 @@ export default function CategoriesPage() {
     const [currentCategory, setCurrentCategory] = useState<Category | null>(null);
     const [formData, setFormData] = useState({ name: "", status: "ACTIVE" });
 
-    const API_URL = process.env.NEXT_PUBLIC_NEST_API_URL || 'https://cloudflare-workers-openapi-production.up.railway.app';
-
     useEffect(() => {
         fetchCategories();
     }, []);
 
     const fetchCategories = async () => {
         try {
-            const res = await fetch(`${API_URL}categories`, {
+            const res = await fetch(proxyApiUrl("categories"), {
                 // headers: { Authorization: `Bearer ${session?.user?.accessToken}` } // Uncomment when backend protects it
             });
             const data = await res.json();
@@ -50,8 +49,8 @@ export default function CategoriesPage() {
         try {
             const method = currentCategory ? "PATCH" : "POST";
             const url = currentCategory
-                ? `${API_URL}categories/${currentCategory.id}`
-                : `${API_URL}categories`;
+                ? proxyApiUrl(`categories/${currentCategory.id}`)
+                : proxyApiUrl("categories");
 
             const res = await fetch(url, {
                 method,
@@ -75,7 +74,7 @@ export default function CategoriesPage() {
     const handleDelete = async (id: number) => {
         if (!confirm("Are you sure you want to delete this category?")) return;
         try {
-            await fetch(`${API_URL}categories/${id}`, {
+            await fetch(proxyApiUrl(`categories/${id}`), {
                 method: "DELETE",
                 // headers: { Authorization: `Bearer ${session?.user?.accessToken}` }
             });

@@ -3,13 +3,12 @@ import Link from "next/link";
 import React, { useEffect, useState } from "react";
 
 export const EcommerceMetrics = () => {
-  const API_URL = process.env.NEXT_PUBLIC_NEST_API_URL || "https://cloudflare-workers-openapi-production.up.railway.app";
   const [stats, setStats] = useState({ draft: 0, underReview: 0, approved: 0 });
 
   useEffect(() => {
     const fetchStats = async () => {
       try {
-        const res = await fetch(`${API_URL}icons/stats`);
+        const res = await fetch("/api/icons/stats");
         if (res.ok) {
           const data = await res.json();
           setStats(data);
@@ -19,7 +18,7 @@ export const EcommerceMetrics = () => {
       }
     };
     fetchStats();
-  }, [API_URL]);
+  }, []);
   return (
     <div className="grid grid-cols-1 gap-4 sm:grid-cols-3 md:gap-6">
       {/* <!-- Metric Item Start --> */}

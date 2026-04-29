@@ -6,10 +6,14 @@ import { TagsInput } from "react-tag-input-component";
 import { useSession } from "next-auth/react";
 import { toast } from "@iamqitmeer/toster";
 import Image from "next/image";
+import { proxyApiUrl } from "@/lib/api";
 
 interface IconDraft {
   id: number;
   title: string;
+  description?: string | null;
+  metaTitle?: string | null;
+  metaDescription?: string | null;
   path: string;
   saved?: boolean;
   selected?: boolean;
@@ -31,7 +35,6 @@ interface SubCategory {
 export default function MyDraftsPage() {
   const DRAWER_WIDTH = 400;
   const { data: session, status } = useSession();
-  const API_URL = process.env.NEXT_PUBLIC_NEST_API_URL || "https://cloudflare-workers-openapi-production.up.railway.app";
 
   const [icons, setIcons] = useState<IconDraft[]>([]);
   const [loading, setLoading] = useState(true);
@@ -48,7 +51,15 @@ export default function MyDraftsPage() {
   const [subCategory, setSubCategory] = useState("");
   const [style, setStyle] = useState<"OUTLINE" | "FILL" | "">("");
   const [title, setTitle] = useState("");
+  const [description, setDescription] = useState("");
+  const [metaTitle, setMetaTitle] = useState("");
+  const [metaDescription, setMetaDescription] = useState("");
   const [suggestions, setSuggestions] = useState<string[]>([]);
+
+  // AI Fill State
+  const [aiLoading, setAiLoading] = useState(false);
+  const [aiBulkProgress, setAiBulkProgress] = useState<{ done: number; total: number } | null>(null);
+  const [isPackSummary, setIsPackSummary] = useState(false);
 
   // Metadata Choices
   const [categories, setCategories] = useState<Category[]>([]);
@@ -70,10 +81,10 @@ export default function MyDraftsPage() {
       setLoading(true);
       try {
         const [iconsRes, catsRes, subCatsRes, tagsRes] = await Promise.all([
-          fetch(`${API_URL}icons/drafts/${session.user.id}`),
-          fetch(`${API_URL}categories`),
-          fetch(`${API_URL}sub-categories`),
-          fetch(`${API_URL}tags`)
+          fetch(proxyApiUrl(`icons/drafts/${session.user.id}`)),
+          fetch(proxyApiUrl("categories")),
+          fetch(proxyApiUrl("sub-categories")),
+          fetch(proxyApiUrl("tags"))
         ]);
 
         const iconsData = await iconsRes.json();
@@ -100,7 +111,7 @@ export default function MyDraftsPage() {
       }
     };
     fetchData();
-  }, [API_URL, session, status]);
+  }, [session, status]);
 
   /* -----------------------------------------------------
      BEFORE UNLOAD WARNING
@@ -142,6 +153,9 @@ export default function MyDraftsPage() {
     if (selectedIcons.length === 1) {
       const icon = selectedIcons[0];
       setTitle(icon.title);
+      setDescription(icon.description || "");
+      setMetaTitle(icon.metaTitle || "");
+      setMetaDescription(icon.metaDescription || "");
       setCategory(icon.category_id ? String(icon.category_id) : "");
       setSubCategory(icon.sub_category_id ? String(icon.sub_category_id) : "");
       setStyle(icon.style || "");
@@ -154,10 +168,14 @@ export default function MyDraftsPage() {
       setSuggestions(Array.from(new Set([...nameTags, "ui", "svg", "web", "icon", ...existingTags])));
     } else {
       setTitle("");
+      setDescription("");
+      setMetaTitle("");
+      setMetaDescription("");
       setCategory("");
       setSubCategory("");
       setStyle("");
       setTags([]);
+      setIsPackSummary(false);
       setSuggestions(Array.from(new Set(["ui", "svg", "web", "icon", ...existingTags])));
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -173,6 +191,9 @@ export default function MyDraftsPage() {
       const promises = selectedIcons.map(icon => {
         const payload: any = {};
         if (selectedIcons.length === 1 && data.title) payload.title = data.title;
+        if (data.description !== undefined) payload.description = data.description;
+        if (data.metaTitle !== undefined) payload.metaTitle = data.metaTitle;
+        if (data.metaDescription !== undefined) payload.metaDescription = data.metaDescription;
         if (data.category_id) payload.categoryId = data.category_id;
         if (data.sub_category_id) payload.subCategoryId = data.sub_category_id;
         if (data.style) payload.style = data.style;
@@ -182,7 +203,7 @@ export default function MyDraftsPage() {
           return Promise.resolve({ ok: true });
         }
 
-        return fetch(`${API_URL}icons/${icon.id}`, {
+        return fetch(proxyApiUrl(`icons/${icon.id}`), {
           method: 'PATCH',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(payload)
@@ -202,6 +223,9 @@ export default function MyDraftsPage() {
           return {
             ...icon,
             ...(data.title && selectedIcons.length === 1 ? { title: data.title } : {}),
+            ...(data.description !== undefined ? { description: data.description } : {}),
+            ...(data.metaTitle !== undefined ? { metaTitle: data.metaTitle } : {}),
+            ...(data.metaDescription !== undefined ? { metaDescription: data.metaDescription } : {}),
             ...(data.category_id ? { category_id: data.category_id } : {}),
             ...(data.sub_category_id ? { sub_category_id: data.sub_category_id } : {}),
             ...(data.style ? { style: data.style } : {}),
@@ -224,6 +248,9 @@ export default function MyDraftsPage() {
   const handleSaveDraft = async () => {
     const savePromise = updateIcons({
       title: selectedIcons.length === 1 ? title : undefined,
+      description: description.trim() ? description : undefined,
+      metaTitle: metaTitle.trim() ? metaTitle : undefined,
+      metaDescription: metaDescription.trim() ? metaDescription : undefined,
       category_id: category ? Number(category) : undefined,
       sub_category_id: subCategory ? Number(subCategory) : undefined,
       style: style ? (style as "OUTLINE" | "FILL") : undefined,
@@ -235,6 +262,95 @@ export default function MyDraftsPage() {
       success: "Draft(s) saved!",
       error: "Failed to save draft(s)"
     });
+  };
+
+  /* -----------------------------------------------------
+     AI FILL — SINGLE OR BULK
+  ----------------------------------------------------- */
+  const handleAiFill = async () => {
+    if (selectedIcons.length === 0 || aiLoading) return;
+
+    setAiLoading(true);
+    setAiBulkProgress(null);
+
+    try {
+      if (selectedIcons.length === 1) {
+        // ── SINGLE ICON ──
+        const res = await fetch(proxyApiUrl(`icons/${selectedIcons[0].id}/ai-fill`), {
+          method: 'POST',
+        });
+
+        if (!res.ok) throw new Error('AI fill request failed');
+        const data = await res.json();
+
+        // Populate drawer fields — user can review before saving
+        if (data.description)     setDescription(data.description);
+        if (data.metaTitle)       setMetaTitle(data.metaTitle);
+        if (data.metaDescription) setMetaDescription(data.metaDescription);
+        if (data.tags?.length)    setTags(prev => Array.from(new Set([...prev, ...data.tags])));
+
+        toast.success("AI filled the fields! Review and save when ready.");
+
+      } else {
+        // ── BULK ICONS ──
+        const total = selectedIcons.length;
+        setAiBulkProgress({ done: 0, total });
+
+        const res = await fetch(proxyApiUrl('icons/ai-fill/bulk'), {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ ids: selectedIcons.map(i => i.id) }),
+        });
+
+        if (!res.ok) throw new Error('Bulk AI fill request failed');
+
+        const { perIcon, packSummary }: {
+          perIcon: { id: number; status: string; data: any; error: string | null }[];
+          packSummary: { description: string; metaTitle: string; metaDescription: string; tags: string[] };
+        } = await res.json();
+
+        setAiBulkProgress({ done: total, total });
+
+        // Merge per-icon AI results into each icon's state
+        setIcons(prev => prev.map(icon => {
+          const result = perIcon.find(r => r.id === icon.id && r.status === 'fulfilled' && r.data);
+          if (!result) return icon;
+
+          const existingTagNames: string[] = (icon as any).tags?.map((t: any) => t.name || t) || [];
+          const mergedTags = Array.from(new Set([...existingTagNames, ...(result.data.tags || [])]));
+
+          return {
+            ...icon,
+            description:     result.data.description     || icon.description,
+            metaTitle:       result.data.metaTitle       || icon.metaTitle,
+            metaDescription: result.data.metaDescription || icon.metaDescription,
+            tags: mergedTags.map(name => ({ name })) as any,
+          };
+        }));
+
+        // Populate drawer fields with the pack-level summary
+        if (packSummary.description)     setDescription(packSummary.description);
+        if (packSummary.metaTitle)       setMetaTitle(packSummary.metaTitle);
+        if (packSummary.metaDescription) setMetaDescription(packSummary.metaDescription);
+        if (packSummary.tags?.length)    setTags(Array.from(new Set(packSummary.tags)));
+        setIsPackSummary(true);
+
+        const succeeded = perIcon.filter(r => r.status === 'fulfilled').length;
+        const failed    = total - succeeded;
+
+        if (failed > 0) {
+          toast.error(`AI filled ${succeeded}/${total} icons. Pack summary ready in drawer. ${failed} failed.`);
+        } else {
+          toast.success(`AI filled all ${succeeded} icons! Pack summary is in the drawer — review and save.`);
+        }
+      }
+    } catch (err) {
+      console.error("AI fill error:", err);
+      toast.error("AI fill failed. Please try again.");
+    } finally {
+      setAiLoading(false);
+      setAiBulkProgress(null);
+    }
   };
 
   /* -----------------------------------------------------
@@ -285,6 +401,9 @@ export default function MyDraftsPage() {
     const publishMultiple = async () => {
       await updateIcons({
         title: selectedIcons.length === 1 ? title : undefined,
+        description: description.trim() ? description : undefined,
+        metaTitle: metaTitle.trim() ? metaTitle : undefined,
+        metaDescription: metaDescription.trim() ? metaDescription : undefined,
         category_id: category ? Number(category) : undefined,
         sub_category_id: subCategory ? Number(subCategory) : undefined,
         style: style ? (style as "OUTLINE" | "FILL") : undefined,
@@ -292,7 +411,7 @@ export default function MyDraftsPage() {
       });
 
       const publishPromises = selectedIcons.map(i =>
-        fetch(`${API_URL}icons/${i.id}/publish`, { method: 'POST' })
+        fetch(proxyApiUrl(`icons/${i.id}/publish`), { method: 'POST' })
       );
       const results = await Promise.all(publishPromises);
       const successfulIds: number[] = [];
@@ -327,7 +446,7 @@ export default function MyDraftsPage() {
     e.stopPropagation();
     if (!confirm("Delete draft?")) return;
     try {
-      await fetch(`${API_URL}icons/drafts/${id}`, { method: 'DELETE' });
+      await fetch(proxyApiUrl(`icons/drafts/${id}`), { method: 'DELETE' });
       setIcons(icons.filter(i => i.id !== id));
       window.dispatchEvent(new Event("iconsUpdated"));
     } catch (err) {
@@ -357,7 +476,7 @@ export default function MyDraftsPage() {
     const formData = new FormData();
     formData.append("files", file);
 
-    const promise = fetch(`${API_URL}icons/${replacingId}/replace`, {
+    const promise = fetch(proxyApiUrl(`icons/${replacingId}/replace`), {
       method: "PATCH",
       body: formData,
     }).then(async res => {
@@ -458,7 +577,7 @@ export default function MyDraftsPage() {
                     loading="lazy"
                   />
                 </div>
-                {/* Checking Icon — only shown after icon has been saved */}
+                {/* Saved checkmark */}
                 {icon.saved && (
                   <div
                     className="absolute bottom-2 left-2 rounded-full p-1 bg-green-500 text-white shadow-sm pointer-events-none"
@@ -501,6 +620,30 @@ export default function MyDraftsPage() {
 
           {isDrawerOpen && (
             <div className="p-5 space-y-5 overflow-y-auto max-h-[calc(100%-80px)]">
+
+              {/* PACK SUMMARY BANNER */}
+              {isPackSummary && selectedIcons.length > 1 && (
+                <div className="flex items-start gap-2 bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-700 rounded-lg px-3 py-2.5">
+                  <svg className="h-4 w-4 text-green-600 mt-0.5 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M13 10V3L4 14h7v7l9-11h-7z" />
+                  </svg>
+                  <div>
+                    <p className="text-xs font-semibold text-green-700 dark:text-green-400">Pack Summary</p>
+                    <p className="text-xs text-green-600 dark:text-green-500 mt-0.5">
+                      AI generated a combined summary for all {selectedIcons.length} selected icons. Each icon also got its own individual metadata saved. Hit <strong>Save Multiple</strong> to apply this pack summary to all.
+                    </p>
+                  </div>
+                  <button
+                    onClick={() => setIsPackSummary(false)}
+                    className="ml-auto text-green-400 hover:text-green-600 shrink-0"
+                    title="Dismiss"
+                  >
+                    <svg className="h-3.5 w-3.5" viewBox="0 0 20 20" fill="currentColor">
+                      <path fillRule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clipRule="evenodd" />
+                    </svg>
+                  </button>
+                </div>
+              )}
               {/* TITLE */}
               <div className="space-y-1">
                 <label className="text-sm font-normal">Title</label>
@@ -517,6 +660,42 @@ export default function MyDraftsPage() {
                     className="w-full border-b-2 text-sm focus:border-green-600 outline-none py-1 px-1"
                   />
                 )}
+              </div>
+
+              {/* DESCRIPTION */}
+              <div className="space-y-1">
+                <label className="text-sm font-normal">Description</label>
+                <textarea
+                  value={description}
+                  onChange={(e) => setDescription(e.target.value)}
+                  placeholder="Add a short description"
+                  rows={3}
+                  className="w-full border-b-2 text-sm focus:border-green-600 outline-none py-1 px-1 resize-none bg-transparent"
+                />
+              </div>
+
+              {/* META TITLE */}
+              <div className="space-y-1">
+                <label className="text-sm font-normal">Meta Title</label>
+                <input
+                  type="text"
+                  value={metaTitle}
+                  onChange={(e) => setMetaTitle(e.target.value)}
+                  placeholder="Add meta title"
+                  className="w-full border-b-2 text-sm focus:border-green-600 outline-none py-1 px-1 bg-transparent"
+                />
+              </div>
+
+              {/* META DESCRIPTION */}
+              <div className="space-y-1">
+                <label className="text-sm font-normal">Meta Description</label>
+                <textarea
+                  value={metaDescription}
+                  onChange={(e) => setMetaDescription(e.target.value)}
+                  placeholder="Add meta description"
+                  rows={3}
+                  className="w-full border-b-2 text-sm focus:border-green-600 outline-none py-1 px-1 resize-none bg-transparent"
+                />
               </div>
 
               {/* CATEGORY */}
@@ -601,18 +780,51 @@ export default function MyDraftsPage() {
               </div>
 
               {/* ACTION BUTTONS */}
-              <div className="flex gap-3">
-                <button
+              <div className="flex flex-col gap-3">
+                <div className="flex gap-3">
+                  <button
                   onClick={handleSaveDraft}
                   className="flex-1 py-2 rounded-full bg-[#0A2F3E] text-gray-200 font-semibold hover:bg-gray-900 transition"
                 >
                   {selectedIcons.length > 1 ? "Save Multiple" : "Save"}
                 </button>
+
                 <button
                   onClick={handleSubmit}
                   className="flex-1 py-2 rounded-full bg-[#00A654] text-white font-semibold hover:bg-green-700 transition shadow-sm"
                 >
                   {selectedIcons.length > 0 ? (selectedIcons.length > 1 ? `Submit Selected (${selectedIcons.length})` : "Submit Selected") : "Submit"}
+                </button>
+                </div>
+                {/* AI FILL BUTTON */}
+                <button
+                  type="button"
+                  onClick={handleAiFill}
+                  disabled={aiLoading}
+                  className={`flex-1 py-2 rounded-full border font-semibold transition-all duration-200 text-sm
+                    ${aiLoading
+                      ? 'border-green-300 text-green-400 cursor-not-allowed bg-green-50 dark:bg-green-900/10'
+                      : 'border-green-500 text-green-700 hover:bg-green-50 dark:hover:bg-green-900/20 cursor-pointer'
+                    }`}
+                >
+                  {aiLoading ? (
+                    <span className="flex items-center justify-center gap-1.5">
+                      <svg className="animate-spin h-3.5 w-3.5" viewBox="0 0 24 24" fill="none">
+                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z" />
+                      </svg>
+                      {aiBulkProgress
+                        ? `${aiBulkProgress.done}/${aiBulkProgress.total}`
+                        : 'Analyzing...'}
+                    </span>
+                  ) : (
+                    <span className="flex items-center justify-center gap-1">
+                      <svg className="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M13 10V3L4 14h7v7l9-11h-7z" />
+                      </svg>
+                      Fill with AI
+                    </span>
+                  )}
                 </button>
               </div>
 

@@ -11,13 +11,12 @@ import React, { useState, useEffect, useRef } from "react";
 const AppHeader: React.FC = () => {
   const [isApplicationMenuOpen, setApplicationMenuOpen] = useState(false);
   const pathname = usePathname();
-  const API_URL = process.env.NEXT_PUBLIC_NEST_API_URL || "https://cloudflare-workers-openapi-production.up.railway.app";
   const [stats, setStats] = useState({ draft: 0, underReview: 0, approved: 0 });
 
   useEffect(() => {
     const fetchStats = async () => {
       try {
-        const res = await fetch(`${API_URL}icons/stats`);
+        const res = await fetch("/api/icons/stats");
         if (res.ok) {
           const data = await res.json();
           setStats(data);
@@ -30,7 +29,7 @@ const AppHeader: React.FC = () => {
 
     window.addEventListener("iconsUpdated", fetchStats);
     return () => window.removeEventListener("iconsUpdated", fetchStats);
-  }, [API_URL]);
+  }, []);
 
   const isMyIconsRoute = pathname === "/upload" || pathname === "/all" || pathname === "/draft" || pathname === "/under-review";
   const tabs = [

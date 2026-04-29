@@ -6,6 +6,7 @@ import { useDropzone } from "react-dropzone";
 import axios from "axios";
 // import Link from "next/link";
 import { useSession } from "next-auth/react";
+import { useRouter } from "next/navigation";
 
 interface UploadedFile {
   name: string;
@@ -18,6 +19,7 @@ const DropzoneComponent: React.FC = () => {
   const [uploadedFiles, setUploadedFiles] = useState<UploadedFile[]>([]);
   const [showSuccessMessage, setShowSuccessMessage] = useState(false);
   const { data: session } = useSession();
+  const router = useRouter();
 
   const formatBytes = (bytes: number) => {
     if (bytes < 1024) return `${bytes} Bytes`;
@@ -25,10 +27,10 @@ const DropzoneComponent: React.FC = () => {
     return `${(bytes / (1024 * 1024)).toFixed(2)} MB`;
   };
 
-  const uploadFile = (file: File) => {
+  const uploadFile = async (file: File) => {
     if (!session?.user?.id) {
       alert("You must be logged in to upload files.");
-      return;
+      return false;
     }
 
     const formData = new FormData();
@@ -46,8 +48,8 @@ const DropzoneComponent: React.FC = () => {
       },
     ]);
 
-    axios
-      .post("https://cloudflare-workers-openapi-production.up.railway.app/icons/temp-upload", formData, {
+    try {
+      await axios.post("/api/icons/temp-upload", formData, {
         headers: {
           "Content-Type": "multipart/form-data",
         },
@@ -63,31 +65,36 @@ const DropzoneComponent: React.FC = () => {
           );
         },
       })
-      .then(() => {
-        setUploadedFiles((prev) =>
-          prev.map((f) =>
-            f.name === file.name
-              ? { ...f, status: "Uploaded Successfully", progress: 100 }
-              : f
-          )
-        );
-        setShowSuccessMessage(true);
-        window.dispatchEvent(new Event("iconsUpdated"));
-      })
-      .catch(() => {
-        setUploadedFiles((prev) =>
-          prev.map((f) =>
-            f.name === file.name
-              ? { ...f, status: "Upload Failed", progress: 0 }
-              : f
-          )
-        );
-      });
+      setUploadedFiles((prev) =>
+        prev.map((f) =>
+          f.name === file.name
+            ? { ...f, status: "Uploaded Successfully", progress: 100 }
+            : f
+        )
+      );
+      return true;
+    } catch {
+      setUploadedFiles((prev) =>
+        prev.map((f) =>
+          f.name === file.name
+            ? { ...f, status: "Upload Failed", progress: 0 }
+            : f
+        )
+      );
+      return false;
+    }
   };
 
-  const onDrop = (acceptedFiles: File[]) => {
+  const onDrop = async (acceptedFiles: File[]) => {
     setShowSuccessMessage(false);
-    acceptedFiles.forEach((file) => uploadFile(file));
+    const results = await Promise.all(acceptedFiles.map((file) => uploadFile(file)));
+    const successCount = results.filter(Boolean).length;
+
+    if (successCount > 0 && successCount === acceptedFiles.length) {
+      setShowSuccessMessage(true);
+      window.dispatchEvent(new Event("iconsUpdated"));
+      router.push("/draft");
+    }
   };
 
   const { getRootProps, getInputProps, isDragActive } = useDropzone({
@@ -140,7 +147,7 @@ const DropzoneComponent: React.FC = () => {
                 {isDragActive ? "Drop Files Here" : "Drag & Drop Files Here"}
               </h4>
 
-              <span className="text-center mb-5 block w-full max-w-[290px] text-sm text-gray-700 dark:text-gray-400">
+              <span className="text-center mb-5 block w-full max-w-72.5 text-sm text-gray-700 dark:text-gray-400">
                 Drag and drop your PNG, JPG, WebP, SVG images here or browse
               </span>
 

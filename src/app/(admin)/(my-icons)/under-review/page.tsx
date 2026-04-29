@@ -4,6 +4,7 @@ import React, { useEffect, useState } from "react";
 import PageBreadcrumb from "@/components/common/PageBreadCrumb";
 // import { useSession } from "next-auth/react";
 import Image from "next/image";
+import { proxyApiUrl } from "@/lib/api";
 
 interface Icon {
     id: number;
@@ -23,12 +24,11 @@ export default function UnderReviewPage() {
     // const { data: session } = useSession();
     const [groups, setGroups] = useState<PendingGroup[]>([]);
     const [loading, setLoading] = useState(true);
-    const API_URL = process.env.NEXT_PUBLIC_NEST_API_URL || "https://cloudflare-workers-openapi-production.up.railway.app";
 
     const fetchPending = async () => {
         setLoading(true);
         try {
-            const res = await fetch(`${API_URL}icons/pending`);
+            const res = await fetch(proxyApiUrl("icons/pending"));
             if (res.ok) {
                 const data = await res.json();
                 setGroups(data);
@@ -48,7 +48,7 @@ export default function UnderReviewPage() {
         if (!confirm(`Approve ${iconIds.length} icons for this user?`)) return;
 
         try {
-            const res = await fetch(`${API_URL}/icons/approve`, {
+            const res = await fetch(proxyApiUrl("icons/approve"), {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({ ids: iconIds }),

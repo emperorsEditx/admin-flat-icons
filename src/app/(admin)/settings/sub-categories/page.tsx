@@ -4,6 +4,7 @@ import { Modal } from "@/components/ui/modal";
 import Input from "@/components/form/input/InputField";
 import Label from "@/components/form/Label";
 import Badge from "@/components/ui/badge/Badge";
+import { proxyApiUrl } from "@/lib/api";
 import {
     Table,
     TableBody,
@@ -34,8 +35,6 @@ export default function SubCategoriesPage() {
     const [currentSubCategory, setCurrentSubCategory] = useState<SubCategory | null>(null);
     const [formData, setFormData] = useState({ name: "", status: "ACTIVE", categoryId: "" });
 
-    const API_URL = process.env.NEXT_PUBLIC_NEST_API_URL || 'https://cloudflare-workers-openapi-production.up.railway.app';
-
     useEffect(() => {
         fetchSubCategories();
         fetchCategories();
@@ -43,7 +42,7 @@ export default function SubCategoriesPage() {
 
     const fetchSubCategories = async () => {
         try {
-            const res = await fetch(`${API_URL}sub-categories`);
+            const res = await fetch(proxyApiUrl("sub-categories"));
             const data = await res.json();
             setSubCategories(data);
         } catch (error) {
@@ -55,7 +54,7 @@ export default function SubCategoriesPage() {
 
     const fetchCategories = async () => {
         try {
-            const res = await fetch(`${API_URL}categories`);
+            const res = await fetch(proxyApiUrl("categories"));
             const data = await res.json();
             setCategories(data);
         } catch (error) {
@@ -73,8 +72,8 @@ export default function SubCategoriesPage() {
         try {
             const method = currentSubCategory ? "PATCH" : "POST";
             const url = currentSubCategory
-                ? `${API_URL}sub-categories/${currentSubCategory.id}`
-                : `${API_URL}sub-categories`;
+                ? proxyApiUrl(`sub-categories/${currentSubCategory.id}`)
+                : proxyApiUrl("sub-categories");
 
             const payload = {
                 ...formData,
@@ -104,7 +103,7 @@ export default function SubCategoriesPage() {
     const handleDelete = async (id: number) => {
         if (!confirm("Are you sure you want to delete this sub-category?")) return;
         try {
-            await fetch(`${API_URL}sub-categories/${id}`, {
+            await fetch(proxyApiUrl(`sub-categories/${id}`), {
                 method: "DELETE",
             });
             fetchSubCategories();
@@ -144,11 +143,11 @@ export default function SubCategoriesPage() {
                 </button>
             </div>
 
-            <div className="overflow-hidden rounded-xl border border-gray-200 bg-white dark:border-white/[0.05] dark:bg-white/[0.03]">
+            <div className="overflow-hidden rounded-xl border border-gray-200 bg-white dark:border-white/5 dark:bg-white/3">
                 <div className="max-w-full overflow-x-auto">
-                    <div className="min-w-[500px]">
+                    <div className="min-w-125">
                         <Table>
-                            <TableHeader className="border-b border-gray-100 dark:border-white/[0.05]">
+                            <TableHeader className="border-b border-gray-100 dark:border-white/5">
                                 <TableRow>
                                     <TableCell isHeader className="px-5 py-3 font-medium text-gray-500 text-start">ID</TableCell>
                                     <TableCell isHeader className="px-5 py-3 font-medium text-gray-500 text-start">Name</TableCell>
@@ -157,7 +156,7 @@ export default function SubCategoriesPage() {
                                     <TableCell isHeader className="px-5 py-3 font-medium text-gray-500 text-start">Actions</TableCell>
                                 </TableRow>
                             </TableHeader>
-                            <TableBody className="divide-y divide-gray-100 dark:divide-white/[0.05]">
+                            <TableBody className="divide-y divide-gray-100 dark:divide-white/5">
                                 {subCategories.map((subCategory) => (
                                     <TableRow key={subCategory.id}>
                                         <TableCell className="px-5 py-4 text-gray-500">{subCategory.id}</TableCell>
