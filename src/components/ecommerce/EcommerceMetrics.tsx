@@ -1,6 +1,7 @@
 "use client";
 import Link from "next/link";
 import React, { useEffect, useState } from "react";
+import { proxyApiUrl } from "@/lib/api";
 
 export const EcommerceMetrics = () => {
   const [stats, setStats] = useState({ draft: 0, underReview: 0, approved: 0 });
@@ -8,7 +9,7 @@ export const EcommerceMetrics = () => {
   useEffect(() => {
     const fetchStats = async () => {
       try {
-        const res = await fetch("/api/icons/stats");
+        const res = await fetch(proxyApiUrl("icons/stats"));
         if (res.ok) {
           const data = await res.json();
           setStats(data);

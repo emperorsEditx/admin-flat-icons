@@ -1,5 +1,6 @@
 "use client";
 import React, { useEffect, useRef, useState, useCallback } from "react";
+import { proxyApiUrl } from "@/lib/api";
 import Link from "next/link";
 // import Image from "next/image";
 import { usePathname } from "next/navigation";
@@ -116,7 +117,7 @@ const AppSidebar: React.FC = () => {
   useEffect(() => {
     const fetchStats = async () => {
       try {
-        const res = await fetch("/api/icons/stats");
+        const res = await fetch(proxyApiUrl("icons/stats"));
         if (res.ok) {
           const data = await res.json();
           setStats(data);

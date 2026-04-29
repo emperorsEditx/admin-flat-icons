@@ -7,6 +7,7 @@ import { useSidebar } from "@/context/SidebarContext";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import React, { useState, useEffect, useRef } from "react";
+import { proxyApiUrl } from "@/lib/api";
 
 const AppHeader: React.FC = () => {
   const [isApplicationMenuOpen, setApplicationMenuOpen] = useState(false);
@@ -16,7 +17,7 @@ const AppHeader: React.FC = () => {
   useEffect(() => {
     const fetchStats = async () => {
       try {
-        const res = await fetch("/api/icons/stats");
+        const res = await fetch(proxyApiUrl("icons/stats"));
         if (res.ok) {
           const data = await res.json();
           setStats(data);

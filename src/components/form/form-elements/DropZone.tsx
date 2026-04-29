@@ -4,6 +4,7 @@ import Alert from "@/components/ui/alert/Alert";
 import React, { useState } from "react";
 import { useDropzone } from "react-dropzone";
 import axios from "axios";
+import { proxyApiUrl } from "@/lib/api";
 // import Link from "next/link";
 import { useSession } from "next-auth/react";
 import { useRouter } from "next/navigation";
@@ -49,7 +50,7 @@ const DropzoneComponent: React.FC = () => {
     ]);
 
     try {
-      await axios.post("/api/icons/temp-upload", formData, {
+      await axios.post(proxyApiUrl("icons/temp-upload"), formData, {
         headers: {
           "Content-Type": "multipart/form-data",
         },
