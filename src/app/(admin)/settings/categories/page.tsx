@@ -25,12 +25,15 @@ export default function CategoriesPage() {
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [currentCategory, setCurrentCategory] = useState<Category | null>(null);
     const [formData, setFormData] = useState({ name: "", status: "ACTIVE" });
+    const [isSubmitting, setIsSubmitting] = useState(false);
+    const [feedback, setFeedback] = useState<{ type: "success" | "error"; message: string } | null>(null);
 
     useEffect(() => {
         fetchCategories();
     }, []);
 
     const fetchCategories = async () => {
+        setIsLoading(true);
         try {
             const res = await fetch(proxyApiUrl("categories"), {
                 // headers: { Authorization: `Bearer ${session?.user?.accessToken}` } // Uncomment when backend protects it
@@ -39,6 +42,10 @@ export default function CategoriesPage() {
             setCategories(data);
         } catch (error) {
             console.error("Failed to fetch categories", error);
+            setFeedback({
+                type: "error",
+                message: "Unable to load categories right now. Please try again.",
+            });
         } finally {
             setIsLoading(false);
         }
@@ -46,6 +53,8 @@ export default function CategoriesPage() {
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
+        setIsSubmitting(true);
+        setFeedback(null);
         try {
             const method = currentCategory ? "PATCH" : "POST";
             const url = currentCategory
@@ -62,33 +71,59 @@ export default function CategoriesPage() {
             });
 
             if (res.ok) {
+                setFeedback({
+                    type: "success",
+                    message: currentCategory ? "Category updated successfully." : "Category created successfully.",
+                });
                 setIsModalOpen(false);
-                fetchCategories();
                 resetForm();
+                fetchCategories();
+                return;
             }
+
+            const errorData = await res.json().catch(() => null);
+            throw new Error(errorData?.message || "Failed to save category.");
         } catch (error) {
             console.error("Failed to save category", error);
+            setFeedback({
+                type: "error",
+                message: error instanceof Error ? error.message : "Failed to save category.",
+            });
+        } finally {
+            setIsSubmitting(false);
         }
     };
 
     const handleDelete = async (id: number) => {
         if (!confirm("Are you sure you want to delete this category?")) return;
+        setFeedback(null);
         try {
-            await fetch(proxyApiUrl(`categories/${id}`), {
+            const res = await fetch(proxyApiUrl(`categories/${id}`), {
                 method: "DELETE",
                 // headers: { Authorization: `Bearer ${session?.user?.accessToken}` }
             });
+
+            if (!res.ok) {
+                const errorData = await res.json().catch(() => null);
+                throw new Error(errorData?.message || "Failed to delete category.");
+            }
+
+            setFeedback({ type: "success", message: "Category deleted successfully." });
             fetchCategories();
         } catch (error) {
             console.error("Failed to delete category", error);
+            setFeedback({
+                type: "error",
+                message: error instanceof Error ? error.message : "Failed to delete category.",
+            });
         }
     };
 
     const openModal = (category?: Category) => {
+        setFeedback(null);
         if (category) {
             setCurrentCategory(category);
             setFormData({ name: category.name, status: category.status });
-            console.log(formData.name);
         } else {
             resetForm();
         }
@@ -106,11 +141,23 @@ export default function CategoriesPage() {
                 <h1 className="text-2xl font-bold text-gray-800 dark:text-white">Categories</h1>
                 <button
                     onClick={() => openModal()}
+                    type="button"
                     className="px-4 py-2 text-white bg-brand-500 rounded-lg hover:bg-brand-600 transition"
                 >
                     Add Category
                 </button>
             </div>
+
+            {feedback && (
+                <div
+                    className={`mb-4 rounded-xl border px-4 py-3 text-sm ${feedback.type === "success"
+                        ? "border-success-200 bg-success-50 text-success-700 dark:border-success-500/30 dark:bg-success-500/10 dark:text-success-400"
+                        : "border-error-200 bg-error-50 text-error-700 dark:border-error-500/30 dark:bg-error-500/10 dark:text-error-400"
+                        }`}
+                >
+                    {feedback.message}
+                </div>
+            )}
 
             <div className="overflow-hidden rounded-xl border border-gray-200 bg-white dark:border-white/[0.05] dark:bg-white/[0.03]">
                 <div className="max-w-full overflow-x-auto">
@@ -125,7 +172,23 @@ export default function CategoriesPage() {
                                 </TableRow>
                             </TableHeader>
                             <TableBody className="divide-y divide-gray-100 dark:divide-white/[0.05]">
-                                {categories.map((category) => (
+                                {isLoading && Array.from({ length: 4 }).map((_, index) => (
+                                    <TableRow key={`category-skeleton-${index}`}>
+                                        <TableCell className="px-5 py-4">
+                                            <div className="h-4 w-10 animate-pulse rounded bg-gray-200 dark:bg-gray-800" />
+                                        </TableCell>
+                                        <TableCell className="px-5 py-4">
+                                            <div className="h-4 w-40 animate-pulse rounded bg-gray-200 dark:bg-gray-800" />
+                                        </TableCell>
+                                        <TableCell className="px-5 py-4">
+                                            <div className="h-6 w-20 animate-pulse rounded-full bg-gray-200 dark:bg-gray-800" />
+                                        </TableCell>
+                                        <TableCell className="px-5 py-4">
+                                            <div className="h-4 w-24 animate-pulse rounded bg-gray-200 dark:bg-gray-800" />
+                                        </TableCell>
+                                    </TableRow>
+                                ))}
+                                {!isLoading && categories.map((category) => (
                                     <TableRow key={category.id}>
                                         <TableCell className="px-5 py-4 text-gray-500">{category.id}</TableCell>
                                         <TableCell className="px-5 py-4 text-gray-800 dark:text-white font-medium">{category.name}</TableCell>
@@ -146,10 +209,10 @@ export default function CategoriesPage() {
                                         </TableCell>
                                     </TableRow>
                                 ))}
-                                {categories.length === 0 && !isLoading && (
+                                {!isLoading && categories.length === 0 && (
                                     <TableRow>
-                                        <TableCell className="px-5 py-4 text-center text-gray-500">
-                                            No categories found.
+                                        <TableCell colSpan={4} className="px-5 py-10 text-center text-gray-500">
+                                            No categories found. Create the first one to get started.
                                         </TableCell>
                                     </TableRow>
                                 )}
@@ -171,6 +234,7 @@ export default function CategoriesPage() {
                             value={formData.name}
                             onChange={(e) => setFormData({ ...formData, name: e.target.value })}
                             placeholder="Category Name"
+                            autoFocus
                         />
                     </div>
                     <div>
@@ -189,14 +253,16 @@ export default function CategoriesPage() {
                             type="button"
                             onClick={() => setIsModalOpen(false)}
                             className="px-4 py-2 text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200 dark:text-gray-300 dark:bg-white/10 dark:hover:bg-white/20"
+                            disabled={isSubmitting}
                         >
                             Cancel
                         </button>
                         <button
                             type="submit"
-                            className="px-4 py-2 text-white bg-brand-500 rounded-lg hover:bg-brand-600"
+                            disabled={isSubmitting}
+                            className="px-4 py-2 text-white bg-brand-500 rounded-lg hover:bg-brand-600 disabled:cursor-not-allowed disabled:opacity-70"
                         >
-                            Save
+                            {isSubmitting ? "Saving..." : "Save"}
                         </button>
                     </div>
                 </form>
