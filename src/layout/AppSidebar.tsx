@@ -52,7 +52,7 @@ const navItems: NavItem[] = [
   {
     name: "Stats",
     icon: <ListIcon />,
-    path: '/form-elements',
+    path: "/form-elements",
   },
   // {
   //   name: "Invoices",

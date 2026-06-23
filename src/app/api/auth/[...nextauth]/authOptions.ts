@@ -4,7 +4,7 @@ import GoogleProvider from "next-auth/providers/google";
 
 // Get API URL with proper fallback
 const getAPIUrl = () => {
-  return process.env.NEST_API_URL?.replace(/\/$/, '') || 'https://cloudflare-workers-openapi-production.up.railway.app';
+  return process.env.NEST_API_URL?.replace(/\/$/, '') || 'https://flat-icons-api.awaiss.tech';
 };
 
 export const authOptions: AuthOptions = {

@@ -66,6 +66,38 @@ export default function UnderReviewPage() {
             alert("Error approving icons");
         }
     };
+    
+    const handleReject = async (userId: number, iconIds: number[]) => {
+        if (!confirm(`Reject ${iconIds.length} icons for this user?`)) return;
+
+        try {
+            const response = await fetch(proxyApiUrl('icons/pending/bulk-delete'), {
+                method: 'DELETE',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    iconIds,
+                }),
+            });
+
+            if (!response.ok) {
+                const error = await response.text();
+                throw new Error(error || 'Failed to reject icons');
+            }
+
+            const data = await response.json();
+
+            alert(
+                `${data.deletedCount ?? iconIds.length} icon(s) rejected successfully.`
+            );
+
+            fetchPending();
+        } catch (error) {
+            console.error(error);
+            alert('Error rejecting icons.');
+        }
+    };
 
     return (
         <div>
@@ -93,7 +125,7 @@ export default function UnderReviewPage() {
                                     </p>
                                 </div>
                                 <div className="flex gap-3">
-                                    <button className="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-brand-500">
+                                    <button className="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-brand-500" onClick={() => handleReject(group.userId, group.icons.map(i => i.id))}>
                                         Reject All
                                     </button>
                                     <button

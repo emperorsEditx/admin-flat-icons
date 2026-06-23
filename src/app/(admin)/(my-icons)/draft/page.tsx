@@ -37,6 +37,12 @@ export default function MyDraftsPage() {
   const { data: session, status } = useSession();
 
   const [icons, setIcons] = useState<IconDraft[]>([]);
+  const iconsRef = useRef<IconDraft[]>([]);
+
+  // Keep ref in sync — add this right after your icons useState
+  useEffect(() => {
+    iconsRef.current = icons;
+  }, [icons]);
   const [loading, setLoading] = useState(true);
   const [lastSelectedIndex, setLastSelectedIndex] = useState<number | null>(null);
   const [openMenuIndex, setOpenMenuIndex] = useState<number | null>(null);
@@ -54,6 +60,8 @@ export default function MyDraftsPage() {
   const [description, setDescription] = useState("");
   const [metaTitle, setMetaTitle] = useState("");
   const [metaDescription, setMetaDescription] = useState("");
+  const [bundleThumbnail, setBundleThumbnail] = useState<File | null>(null);
+  const [bundleThumbnailPreview, setBundleThumbnailPreview] = useState("");
   const [suggestions, setSuggestions] = useState<string[]>([]);
 
   // AI Fill State
@@ -175,6 +183,8 @@ export default function MyDraftsPage() {
       setSubCategory("");
       setStyle("");
       setTags([]);
+      setBundleThumbnail(null);
+      setBundleThumbnailPreview("");
       setIsPackSummary(false);
       setSuggestions(Array.from(new Set(["ui", "svg", "web", "icon", ...existingTags])));
     }
@@ -187,17 +197,43 @@ export default function MyDraftsPage() {
   const updateIcons = async (data: Partial<IconDraft> & { tags?: string[] }) => {
     if (selectedIcons.length === 0) return;
 
+    const isBulk = selectedIcons.length > 1;
+
+    // Get fresh icons from ref (avoids stale closure issue)
+    const currentIcons = iconsRef.current;
+    const currentSelected = currentIcons.filter(i => i.selected);
+
     try {
-      const promises = selectedIcons.map(icon => {
+      const promises = currentSelected.map(icon => {
         const payload: any = {};
-        if (selectedIcons.length === 1 && data.title) payload.title = data.title;
-        if (data.description !== undefined) payload.description = data.description;
-        if (data.metaTitle !== undefined) payload.metaTitle = data.metaTitle;
-        if (data.metaDescription !== undefined) payload.metaDescription = data.metaDescription;
+
+        if (!isBulk) {
+          // SINGLE: use drawer fields
+          if (data.title?.trim()) payload.title = data.title;
+          if (data.description?.trim()) payload.description = data.description;
+          if (data.metaTitle?.trim()) payload.metaTitle = data.metaTitle;
+          if (data.metaDescription?.trim()) payload.metaDescription = data.metaDescription;
+        } else {
+          // BULK: read each icon's own data from the ref (has fresh AI-filled values)
+          if (icon.description?.trim()) payload.description = icon.description;
+          if (icon.metaTitle?.trim()) payload.metaTitle = icon.metaTitle;
+          if (icon.metaDescription?.trim()) payload.metaDescription = icon.metaDescription;
+        }
+
+        // Structural fields always from drawer
         if (data.category_id) payload.categoryId = data.category_id;
         if (data.sub_category_id) payload.subCategoryId = data.sub_category_id;
         if (data.style) payload.style = data.style;
-        if (data.tags && data.tags.length > 0) payload.tags = data.tags;
+
+        // Tags
+        if (!isBulk) {
+          if (data.tags && data.tags.length > 0) payload.tags = data.tags;
+        } else {
+          const iconTagNames: string[] = (icon as any).tags?.map((t: any) => t.name || t) || [];
+          const drawerTags = data.tags || [];
+          const merged = Array.from(new Set([...iconTagNames, ...drawerTags]));
+          if (merged.length > 0) payload.tags = merged;
+        }
 
         if (Object.keys(payload).length === 0) {
           return Promise.resolve({ ok: true });
@@ -206,7 +242,7 @@ export default function MyDraftsPage() {
         return fetch(proxyApiUrl(`icons/${icon.id}`), {
           method: 'PATCH',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(payload)
+          body: JSON.stringify(payload),
         });
       });
 
@@ -214,28 +250,42 @@ export default function MyDraftsPage() {
       const failed = results.find(r => !(r as Response).ok && (r as any).ok !== true);
       if (failed) throw new Error("One or more icons failed to update");
 
-      const updatedIcons = icons.map(icon => {
-        if (icon.selected) {
+      // Update local state
+      setIcons(prev => prev.map(icon => {
+        if (!icon.selected) return icon;
+
+        if (!isBulk) {
           const normalizedTags = data.tags && data.tags.length > 0
             ? data.tags.map((t: string) => ({ name: t }))
             : (icon as any).tags || [];
-
           return {
             ...icon,
-            ...(data.title && selectedIcons.length === 1 ? { title: data.title } : {}),
+            ...(data.title ? { title: data.title } : {}),
             ...(data.description !== undefined ? { description: data.description } : {}),
             ...(data.metaTitle !== undefined ? { metaTitle: data.metaTitle } : {}),
             ...(data.metaDescription !== undefined ? { metaDescription: data.metaDescription } : {}),
             ...(data.category_id ? { category_id: data.category_id } : {}),
             ...(data.sub_category_id ? { sub_category_id: data.sub_category_id } : {}),
             ...(data.style ? { style: data.style } : {}),
-            ...(data.tags && data.tags.length > 0 ? { tags: normalizedTags } : {}),
-            saved: true
+            tags: normalizedTags,
+            saved: true,
+          } as any;
+        } else {
+          // BULK: keep text fields as-is, only update structural
+          const iconTagNames: string[] = (icon as any).tags?.map((t: any) => t.name || t) || [];
+          const drawerTags = data.tags || [];
+          const merged = Array.from(new Set([...iconTagNames, ...drawerTags]));
+          return {
+            ...icon,
+            ...(data.category_id ? { category_id: data.category_id } : {}),
+            ...(data.sub_category_id ? { sub_category_id: data.sub_category_id } : {}),
+            ...(data.style ? { style: data.style } : {}),
+            tags: merged.map(name => ({ name })),
+            saved: true,
           } as any;
         }
-        return icon;
-      });
-      setIcons(updatedIcons);
+      }));
+
     } catch (error) {
       console.error("Failed to update icons", error);
       throw error;
@@ -246,15 +296,73 @@ export default function MyDraftsPage() {
      SAVE DRAFT
   ----------------------------------------------------- */
   const handleSaveDraft = async () => {
+    if (selectedIcons.length > 1) {
+      if (!title.trim()) {
+        toast.error("Bundle title is required when saving multiple icons");
+        return;
+      }
+
+      if (!category) {
+        toast.error("Bundle category is required when saving multiple icons");
+        return;
+      }
+    }
+
     const savePromise = updateIcons({
       title: selectedIcons.length === 1 ? title : undefined,
-      description: description.trim() ? description : undefined,
-      metaTitle: metaTitle.trim() ? metaTitle : undefined,
-      metaDescription: metaDescription.trim() ? metaDescription : undefined,
+      description: selectedIcons.length === 1 && description.trim() ? description : undefined,
+      metaTitle: selectedIcons.length === 1 && metaTitle.trim() ? metaTitle : undefined,
+      metaDescription: selectedIcons.length === 1 && metaDescription.trim() ? metaDescription : undefined,
       category_id: category ? Number(category) : undefined,
       sub_category_id: subCategory ? Number(subCategory) : undefined,
       style: style ? (style as "OUTLINE" | "FILL") : undefined,
-      tags: tags.length > 0 ? tags : undefined
+      tags: tags.length > 0 ? tags : undefined,
+    }).then(async () => {
+      if (selectedIcons.length === 1) return;
+
+      const bundleRes = await fetch(proxyApiUrl("bundles"), {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          title: title.trim(),
+          description: description.trim() ? description : undefined,
+          metaTitle: metaTitle.trim() ? metaTitle : undefined,
+          metaDescription: metaDescription.trim() ? metaDescription : undefined,
+          category_id: Number(category),
+          status: "ACTIVE",
+          userId: Number(session?.user?.id),
+        }),
+      });
+
+      if (!bundleRes.ok) {
+        throw new Error("Failed to create bundle");
+      }
+
+      const bundle = await bundleRes.json();
+
+      if (bundleThumbnail) {
+        const thumbnailForm = new FormData();
+        thumbnailForm.append("file", bundleThumbnail);
+
+        const thumbnailRes = await fetch(proxyApiUrl(`bundles/${bundle.id}/thumbnail`), {
+          method: "POST",
+          body: thumbnailForm,
+        });
+
+        if (!thumbnailRes.ok) {
+          throw new Error("Bundle created, but thumbnail upload failed");
+        }
+      }
+
+      await Promise.all(
+        selectedIcons.map((icon) =>
+          fetch(proxyApiUrl(`bundles/${bundle.id}/icons`), {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ iconId: icon.id }),
+          })
+        )
+      );
     });
 
     toast.promise(savePromise, {
@@ -284,10 +392,10 @@ export default function MyDraftsPage() {
         const data = await res.json();
 
         // Populate drawer fields — user can review before saving
-        if (data.description)     setDescription(data.description);
-        if (data.metaTitle)       setMetaTitle(data.metaTitle);
+        if (data.description) setDescription(data.description);
+        if (data.metaTitle) setMetaTitle(data.metaTitle);
         if (data.metaDescription) setMetaDescription(data.metaDescription);
-        if (data.tags?.length)    setTags(prev => Array.from(new Set([...prev, ...data.tags])));
+        if (data.tags?.length) setTags(prev => Array.from(new Set([...prev, ...data.tags])));
 
         toast.success("AI filled the fields! Review and save when ready.");
 
@@ -321,22 +429,22 @@ export default function MyDraftsPage() {
 
           return {
             ...icon,
-            description:     result.data.description     || icon.description,
-            metaTitle:       result.data.metaTitle       || icon.metaTitle,
+            description: result.data.description || icon.description,
+            metaTitle: result.data.metaTitle || icon.metaTitle,
             metaDescription: result.data.metaDescription || icon.metaDescription,
             tags: mergedTags.map(name => ({ name })) as any,
           };
         }));
 
         // Populate drawer fields with the pack-level summary
-        if (packSummary.description)     setDescription(packSummary.description);
-        if (packSummary.metaTitle)       setMetaTitle(packSummary.metaTitle);
+        if (packSummary.description) setDescription(packSummary.description);
+        if (packSummary.metaTitle) setMetaTitle(packSummary.metaTitle);
         if (packSummary.metaDescription) setMetaDescription(packSummary.metaDescription);
-        if (packSummary.tags?.length)    setTags(Array.from(new Set(packSummary.tags)));
+        if (packSummary.tags?.length) setTags(Array.from(new Set(packSummary.tags)));
         setIsPackSummary(true);
 
         const succeeded = perIcon.filter(r => r.status === 'fulfilled').length;
-        const failed    = total - succeeded;
+        const failed = total - succeeded;
 
         if (failed > 0) {
           toast.error(`AI filled ${succeeded}/${total} icons. Pack summary ready in drawer. ${failed} failed.`);
@@ -401,13 +509,13 @@ export default function MyDraftsPage() {
     const publishMultiple = async () => {
       await updateIcons({
         title: selectedIcons.length === 1 ? title : undefined,
-        description: description.trim() ? description : undefined,
-        metaTitle: metaTitle.trim() ? metaTitle : undefined,
-        metaDescription: metaDescription.trim() ? metaDescription : undefined,
+        description: selectedIcons.length === 1 && description.trim() ? description : undefined,
+        metaTitle: selectedIcons.length === 1 && metaTitle.trim() ? metaTitle : undefined,
+        metaDescription: selectedIcons.length === 1 && metaDescription.trim() ? metaDescription : undefined,
         category_id: category ? Number(category) : undefined,
         sub_category_id: subCategory ? Number(subCategory) : undefined,
         style: style ? (style as "OUTLINE" | "FILL") : undefined,
-        tags: tags.length > 0 ? tags : undefined
+        tags: tags.length > 0 ? tags : undefined,
       });
 
       const publishPromises = selectedIcons.map(i =>
@@ -469,7 +577,7 @@ export default function MyDraftsPage() {
   const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     if (!e.target.files || e.target.files.length === 0 || replacingId === null) return;
     const file = e.target.files[0];
-    
+
     // reset input
     e.target.value = '';
 
@@ -593,12 +701,12 @@ export default function MyDraftsPage() {
         </div>
 
         {/* HIDDEN FILE INPUT FOR REPLACE */}
-        <input 
-          type="file" 
-          ref={fileInputRef} 
-          style={{ display: 'none' }} 
-          accept="image/svg+xml,image/png" 
-          onChange={handleFileChange} 
+        <input
+          type="file"
+          ref={fileInputRef}
+          style={{ display: 'none' }}
+          accept="image/svg+xml,image/png"
+          onChange={handleFileChange}
         />
 
         {/* DRAWER */}
@@ -646,20 +754,16 @@ export default function MyDraftsPage() {
               )}
               {/* TITLE */}
               <div className="space-y-1">
-                <label className="text-sm font-normal">Title</label>
-                {selectedIcons.length > 1 ? (
-                  <div className="w-full border-b-2 text-sm text-gray-500 bg-gray-50 dark:bg-gray-800/50 outline-none py-1 px-2 cursor-not-allowed">
-                    [Multiple Selected] Name cannot be bulk edited
-                  </div>
-                ) : (
-                  <input
-                    type="text"
-                    value={title}
-                    onChange={(e) => setTitle(e.target.value)}
-                    placeholder="Add title"
-                    className="w-full border-b-2 text-sm focus:border-green-600 outline-none py-1 px-1"
-                  />
-                )}
+                <label className="text-sm font-normal">
+                  {selectedIcons.length > 1 ? "Bundle Title" : "Title"}
+                </label>
+                <input
+                  type="text"
+                  value={title}
+                  onChange={(e) => setTitle(e.target.value)}
+                  placeholder={selectedIcons.length > 1 ? "Add bundle title" : "Add title"}
+                  className="w-full border-b-2 text-sm focus:border-green-600 outline-none py-1 px-1"
+                />
               </div>
 
               {/* DESCRIPTION */}
@@ -697,6 +801,42 @@ export default function MyDraftsPage() {
                   className="w-full border-b-2 text-sm focus:border-green-600 outline-none py-1 px-1 resize-none bg-transparent"
                 />
               </div>
+
+              {selectedIcons.length > 1 && (
+                <div className="space-y-1">
+                  <label className="text-sm font-normal">Bundle Thumbnail</label>
+                  <input
+                    type="file"
+                    accept="image/*"
+                    onChange={(e) => {
+                      const file = e.target.files?.[0] || null;
+                      setBundleThumbnail(file);
+
+                      if (!file) {
+                        setBundleThumbnailPreview("");
+                        return;
+                      }
+
+                      const reader = new FileReader();
+                      reader.onloadend = () => {
+                        setBundleThumbnailPreview(reader.result as string);
+                      };
+                      reader.readAsDataURL(file);
+                    }}
+                    className="w-full text-sm file:mr-4 file:py-2 file:px-3 file:rounded-md file:border-0 file:text-sm file:font-semibold file:bg-green-50 file:text-green-700 hover:file:bg-green-100"
+                  />
+                  {bundleThumbnailPreview && (
+                    <div className="mt-2 relative w-full h-36 rounded-lg overflow-hidden border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-900">
+                      <Image
+                        src={bundleThumbnailPreview}
+                        alt="Bundle thumbnail preview"
+                        fill
+                        className="object-contain p-2"
+                      />
+                    </div>
+                  )}
+                </div>
+              )}
 
               {/* CATEGORY */}
               <div className="space-y-1">
@@ -783,18 +923,18 @@ export default function MyDraftsPage() {
               <div className="flex flex-col gap-3">
                 <div className="flex gap-3">
                   <button
-                  onClick={handleSaveDraft}
-                  className="flex-1 py-2 rounded-full bg-[#0A2F3E] text-gray-200 font-semibold hover:bg-gray-900 transition"
-                >
-                  {selectedIcons.length > 1 ? "Save Multiple" : "Save"}
-                </button>
+                    onClick={handleSaveDraft}
+                    className="flex-1 py-2 rounded-full bg-[#0A2F3E] text-gray-200 font-semibold hover:bg-gray-900 transition"
+                  >
+                    {selectedIcons.length > 1 ? "Save & Create Bundle" : "Save"}
+                  </button>
 
-                <button
-                  onClick={handleSubmit}
-                  className="flex-1 py-2 rounded-full bg-[#00A654] text-white font-semibold hover:bg-green-700 transition shadow-sm"
-                >
-                  {selectedIcons.length > 0 ? (selectedIcons.length > 1 ? `Submit Selected (${selectedIcons.length})` : "Submit Selected") : "Submit"}
-                </button>
+                  <button
+                    onClick={handleSubmit}
+                    className="flex-1 py-2 rounded-full bg-[#00A654] text-white font-semibold hover:bg-green-700 transition shadow-sm"
+                  >
+                    {selectedIcons.length > 0 ? (selectedIcons.length > 1 ? `Submit Selected (${selectedIcons.length})` : "Submit Selected") : "Submit"}
+                  </button>
                 </div>
                 {/* AI FILL BUTTON */}
                 <button

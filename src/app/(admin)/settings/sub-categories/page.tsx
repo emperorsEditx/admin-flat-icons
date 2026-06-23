@@ -34,6 +34,8 @@ export default function SubCategoriesPage() {
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [currentSubCategory, setCurrentSubCategory] = useState<SubCategory | null>(null);
     const [formData, setFormData] = useState({ name: "", status: "ACTIVE", categoryId: "" });
+    const [isSubmitting, setIsSubmitting] = useState(false);
+    const [feedback, setFeedback] = useState<{ type: "success" | "error"; message: string } | null>(null);
 
     useEffect(() => {
         fetchSubCategories();
@@ -41,12 +43,17 @@ export default function SubCategoriesPage() {
     }, []);
 
     const fetchSubCategories = async () => {
+        setIsLoading(true);
         try {
             const res = await fetch(proxyApiUrl("sub-categories"));
             const data = await res.json();
             setSubCategories(data);
         } catch (error) {
             console.error("Failed to fetch sub-categories", error);
+            setFeedback({
+                type: "error",
+                message: "Unable to load sub-categories right now. Please try again.",
+            });
         } finally {
             setIsLoading(false);
         }
@@ -64,8 +71,12 @@ export default function SubCategoriesPage() {
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
+        setIsSubmitting(true);
+        setFeedback(null);
+
         if (!formData.categoryId) {
             alert("Please select a category");
+            setIsSubmitting(false);
             return;
         }
 
@@ -89,30 +100,50 @@ export default function SubCategoriesPage() {
             });
 
             if (res.ok) {
+                setFeedback({
+                    type: "success",
+                    message: currentSubCategory ? "Sub-category updated successfully." : "Sub-category created successfully.",
+                });
                 setIsModalOpen(false);
                 fetchSubCategories();
                 resetForm();
             } else {
-                console.error("Failed to save sub-category");
+                throw new Error("Failed to save sub-category.");
             }
         } catch (error) {
             console.error("Failed to save sub-category", error);
+            setFeedback({
+                type: "error",
+                message: error instanceof Error ? error.message : "Failed to save sub-category.",
+            });
+        } finally {
+            setIsSubmitting(false);
         }
     };
 
     const handleDelete = async (id: number) => {
         if (!confirm("Are you sure you want to delete this sub-category?")) return;
+        setFeedback(null);
         try {
-            await fetch(proxyApiUrl(`sub-categories/${id}`), {
+            const res = await fetch(proxyApiUrl(`sub-categories/${id}`), {
                 method: "DELETE",
             });
+            if (!res.ok) {
+                throw new Error("Failed to delete sub-category.");
+            }
+            setFeedback({ type: "success", message: "Sub-category deleted successfully." });
             fetchSubCategories();
         } catch (error) {
             console.error("Failed to delete sub-category", error);
+            setFeedback({
+                type: "error",
+                message: error instanceof Error ? error.message : "Failed to delete sub-category.",
+            });
         }
     };
 
     const openModal = (subCategory?: SubCategory) => {
+        setFeedback(null);
         if (subCategory) {
             setCurrentSubCategory(subCategory);
             setFormData({
@@ -137,15 +168,27 @@ export default function SubCategoriesPage() {
                 <h1 className="text-2xl font-bold text-gray-800 dark:text-white">Sub Categories</h1>
                 <button
                     onClick={() => openModal()}
+                    type="button"
                     className="px-4 py-2 text-white bg-brand-500 rounded-lg hover:bg-brand-600 transition"
                 >
                     Add Sub Category
                 </button>
             </div>
 
+            {feedback && (
+                <div
+                    className={`mb-4 rounded-xl border px-4 py-3 text-sm ${feedback.type === "success"
+                        ? "border-success-200 bg-success-50 text-success-700 dark:border-success-500/30 dark:bg-success-500/10 dark:text-success-400"
+                        : "border-error-200 bg-error-50 text-error-700 dark:border-error-500/30 dark:bg-error-500/10 dark:text-error-400"
+                        }`}
+                >
+                    {feedback.message}
+                </div>
+            )}
+
             <div className="overflow-hidden rounded-xl border border-gray-200 bg-white dark:border-white/5 dark:bg-white/3">
                 <div className="max-w-full overflow-x-auto">
-                    <div className="min-w-125">
+                    <div className="min-w-150">
                         <Table>
                             <TableHeader className="border-b border-gray-100 dark:border-white/5">
                                 <TableRow>
@@ -157,7 +200,26 @@ export default function SubCategoriesPage() {
                                 </TableRow>
                             </TableHeader>
                             <TableBody className="divide-y divide-gray-100 dark:divide-white/5">
-                                {subCategories.map((subCategory) => (
+                                {isLoading && Array.from({ length: 4 }).map((_, index) => (
+                                    <TableRow key={`sub-category-skeleton-${index}`}>
+                                        <TableCell className="px-5 py-4">
+                                            <div className="h-4 w-10 animate-pulse rounded bg-gray-200 dark:bg-gray-800" />
+                                        </TableCell>
+                                        <TableCell className="px-5 py-4">
+                                            <div className="h-4 w-40 animate-pulse rounded bg-gray-200 dark:bg-gray-800" />
+                                        </TableCell>
+                                        <TableCell className="px-5 py-4">
+                                            <div className="h-4 w-32 animate-pulse rounded bg-gray-200 dark:bg-gray-800" />
+                                        </TableCell>
+                                        <TableCell className="px-5 py-4">
+                                            <div className="h-6 w-20 animate-pulse rounded-full bg-gray-200 dark:bg-gray-800" />
+                                        </TableCell>
+                                        <TableCell className="px-5 py-4">
+                                            <div className="h-4 w-24 animate-pulse rounded bg-gray-200 dark:bg-gray-800" />
+                                        </TableCell>
+                                    </TableRow>
+                                ))}
+                                {!isLoading && subCategories.map((subCategory) => (
                                     <TableRow key={subCategory.id}>
                                         <TableCell className="px-5 py-4 text-gray-500">{subCategory.id}</TableCell>
                                         <TableCell className="px-5 py-4 text-gray-800 dark:text-white font-medium">{subCategory.name}</TableCell>
@@ -179,10 +241,10 @@ export default function SubCategoriesPage() {
                                         </TableCell>
                                     </TableRow>
                                 ))}
-                                {subCategories.length === 0 && !isLoading && (
+                                {!isLoading && subCategories.length === 0 && (
                                     <TableRow>
-                                        <TableCell className="px-5 py-4 text-center text-gray-500" colSpan={5}>
-                                            No sub-categories found.
+                                        <TableCell className="px-5 py-10 text-center text-gray-500" colSpan={5}>
+                                            No sub-categories found. Create the first one to get started.
                                         </TableCell>
                                     </TableRow>
                                 )}
@@ -235,14 +297,16 @@ export default function SubCategoriesPage() {
                             type="button"
                             onClick={() => setIsModalOpen(false)}
                             className="px-4 py-2 text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200 dark:text-gray-300 dark:bg-white/10 dark:hover:bg-white/20"
+                            disabled={isSubmitting}
                         >
                             Cancel
                         </button>
                         <button
                             type="submit"
-                            className="px-4 py-2 text-white bg-brand-500 rounded-lg hover:bg-brand-600"
+                            disabled={isSubmitting}
+                            className="px-4 py-2 text-white bg-brand-500 rounded-lg hover:bg-brand-600 disabled:cursor-not-allowed disabled:opacity-70"
                         >
-                            Save
+                            {isSubmitting ? "Saving..." : "Save"}
                         </button>
                     </div>
                 </form>
